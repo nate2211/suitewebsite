@@ -1,6 +1,8 @@
 import React from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import { HelmetProvider } from "react-helmet-async";
+
 import Home from "./pages/home";
 import Csv from "./pages/csv";
 import Word from "./pages/word";
@@ -49,19 +51,21 @@ const theme = createTheme({
 
 export default function App() {
   return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <HelmetProvider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
 
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/csv" element={<Csv />} />
-            <Route path="/word" element={<Word />} />
-            <Route path="/powerpoint" element={<PowerPoint />} />
-            <Route path="/pdf" element={<Pdf />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </ThemeProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/csv" element={<Csv />} />
+              <Route path="/word" element={<Word />} />
+              <Route path="/powerpoint" element={<PowerPoint />} />
+              <Route path="/pdf" element={<Pdf />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ThemeProvider>
+      </HelmetProvider>
   );
 }

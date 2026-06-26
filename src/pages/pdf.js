@@ -1,6 +1,7 @@
 import React from "react";
 import { Container, Stack, Typography } from "@mui/material";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
+
 import {
     AppNavBar,
     GradientPage,
@@ -8,9 +9,18 @@ import {
     SectionHeader,
 } from "../components/components";
 
+import HelmetHeader from "../components/HelmetHeader";
+
 export default function Pdf() {
     return (
         <GradientPage>
+            <HelmetHeader
+                title="PDF Editor"
+                path="/pdf"
+                description="Import PDFs, view pages, zoom, add text, highlights, boxes, redaction blocks, notes, signatures, and export edited PDF files from the browser."
+                keywords="PDF editor, browser PDF editor, edit PDF online, PDF markup, PDF annotations, frontend PDF editor, export edited PDF"
+            />
+
             <AppNavBar />
 
             <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>

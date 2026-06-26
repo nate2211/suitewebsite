@@ -2130,6 +2130,18 @@ export function WordEditor() {
 
 /* POWERPOINT EDITOR */
 
+const stableMultilineSx = {
+    "& .MuiInputBase-root": {
+        background: "rgba(0,0,0,.22)",
+        alignItems: "flex-start",
+    },
+    "& textarea": {
+        resize: "vertical",
+        overflow: "auto",
+        lineHeight: 1.45,
+    },
+};
+
 const slideThemes = [
     {
         id: "blue",
@@ -2189,6 +2201,61 @@ function getTheme(themeId) {
     return slideThemes.find((theme) => theme.id === themeId) || slideThemes[0];
 }
 
+function getTextFitInfo(value) {
+    const text = String(value || "").trim();
+    const hardLines = text ? text.split(/\n+/).length : 1;
+    const estimatedLines = Math.ceil(text.length / 52);
+
+    return {
+        chars: text.length,
+        lines: Math.max(1, hardLines, estimatedLines),
+    };
+}
+
+function getSlideFitStyles(slide) {
+    const titleInfo = getTextFitInfo(slide?.title);
+    const bodyInfo = getTextFitInfo(slide?.body);
+    const layout = slide?.layout || "title-body";
+
+    const contentPressure =
+        titleInfo.lines * 1.6 +
+        bodyInfo.lines +
+        Math.ceil(bodyInfo.chars / 115);
+
+    const titlePenalty = Math.max(0, contentPressure - 6) * 2.75;
+    const bodyPenalty = Math.max(0, contentPressure - 7) * 1.6;
+
+    const isBigTitle = layout === "big-title";
+    const isSection = layout === "section";
+
+    return {
+        titleXs: clamp(
+            (isBigTitle ? 38 : 30) - titlePenalty * 0.5,
+            18,
+            isBigTitle ? 38 : 30
+        ),
+        titleMd: clamp(
+            (isBigTitle ? 76 : 58) - titlePenalty,
+            25,
+            isBigTitle ? 76 : 58
+        ),
+        bodyXs: clamp(
+            (isSection ? 18 : 16) - bodyPenalty * 0.4,
+            10,
+            isSection ? 18 : 16
+        ),
+        bodyMd: clamp(
+            (isSection ? 30 : 25) - bodyPenalty,
+            12,
+            isSection ? 30 : 25
+        ),
+        paddingXs: contentPressure > 12 ? 2.25 : 3.5,
+        paddingMd: contentPressure > 12 ? 3.25 : 6,
+        justify: contentPressure > 9 ? "flex-start" : "center",
+        crowded: contentPressure > 9,
+    };
+}
+
 function pptxSlideXmlToSlide(xmlText, index, notes = "") {
     const parser = new DOMParser();
     const xml = parser.parseFromString(xmlText, "application/xml");
@@ -2197,7 +2264,11 @@ function pptxSlideXmlToSlide(xmlText, index, notes = "") {
     const paragraphs = paragraphNodes
         .map((paragraph) => {
             const textNodes = getNodesByLocalName(paragraph, "t");
-            return textNodes.map((node) => node.textContent || "").join("").trim();
+
+            return textNodes
+                .map((node) => node.textContent || "")
+                .join("")
+                .trim();
         })
         .filter(Boolean);
 
@@ -2218,6 +2289,7 @@ function buildPresentationHtml(slides) {
     const renderedSlides = slides
         .map((slide, index) => {
             const theme = getTheme(slide.theme);
+            const fit = getSlideFitStyles(slide);
             const foreground = theme.light ? "#111827" : "white";
             const secondary = theme.light ? "rgba(17,24,39,.72)" : "rgba(255,255,255,.76)";
             const safeTitle = escapeHtml(slide.title);
@@ -2227,13 +2299,25 @@ function buildPresentationHtml(slides) {
             return `
 <section class="slide" style="background:${theme.background}; color:${foreground};">
   <div class="slide-number">Slide ${index + 1}</div>
-  <h1>${safeTitle}</h1>
-  <p style="color:${secondary};">${safeBody}</p>
-  ${
+
+  <div class="slide-content" style="
+    justify-content:${fit.justify};
+    padding:${fit.paddingMd * 8}px;
+  ">
+    <div class="slide-scroll">
+      <h1 style="font-size:${fit.titleMd}px;">${safeTitle}</h1>
+      ${
+                slide.layout !== "big-title"
+                    ? `<p style="color:${secondary}; font-size:${fit.bodyMd}px;">${safeBody}</p>`
+                    : ""
+            }
+      ${
                 safeNotes
                     ? `<aside class="notes"><strong>Speaker Notes:</strong><br />${safeNotes}</aside>`
                     : ""
             }
+    </div>
+  </div>
 </section>`;
         })
         .join("\n");
@@ -2258,33 +2342,49 @@ function buildPresentationHtml(slides) {
 
   .slide {
     min-height: 100vh;
-    padding: 72px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    position: relative;
     border-bottom: 1px solid rgba(255,255,255,0.16);
+    overflow: hidden;
   }
 
   .slide-number {
+    position: absolute;
+    top: 24px;
+    left: 32px;
+    z-index: 2;
     color: #9ee8ff;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    margin-bottom: 24px;
+  }
+
+  .slide-content {
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .slide-scroll {
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   h1 {
     max-width: 1000px;
     margin: 0 0 24px;
-    font-size: clamp(40px, 7vw, 86px);
-    line-height: 0.95;
+    line-height: 1.04;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   p {
     max-width: 900px;
     margin: 0;
-    font-size: clamp(22px, 3vw, 36px);
-    line-height: 1.35;
+    line-height: 1.28;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .notes {
@@ -2303,6 +2403,11 @@ function buildPresentationHtml(slides) {
     .slide {
       min-height: 100vh;
       page-break-after: always;
+    }
+
+    .slide-scroll {
+      max-height: none;
+      overflow: visible;
     }
   }
 </style>
@@ -2325,8 +2430,13 @@ export function PowerPointEditor() {
         "Ready. Import a PPTX file or start building slides."
     );
 
-    const selectedSlide = slides[selectedIndex] || slides[0];
+    const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, slides.length - 1));
+    const selectedSlide = slides[safeSelectedIndex] || slides[0];
     const selectedTheme = getTheme(selectedSlide.theme);
+
+    const slideFit = useMemo(() => {
+        return getSlideFitStyles(selectedSlide);
+    }, [selectedSlide]);
 
     async function importPptx(event) {
         const file = event.target.files?.[0];
@@ -2345,6 +2455,7 @@ export function PowerPointEditor() {
 
             const buffer = await file.arrayBuffer();
             const zip = await JSZip.loadAsync(buffer);
+
             const slideFiles = zip
                 .file(/^ppt\/slides\/slide\d+\.xml$/)
                 .sort((a, b) => {
@@ -2369,6 +2480,7 @@ export function PowerPointEditor() {
                     const notesXml = await notesFile.async("text");
                     const parser = new DOMParser();
                     const notesDoc = parser.parseFromString(notesXml, "application/xml");
+
                     notes = getNodesByLocalName(notesDoc, "t")
                         .map((node) => node.textContent || "")
                         .join(" ")
@@ -2397,7 +2509,7 @@ export function PowerPointEditor() {
     function updateSelectedSlide(field, value) {
         setSlides((previousSlides) =>
             previousSlides.map((slide, index) =>
-                index === selectedIndex
+                index === safeSelectedIndex
                     ? {
                         ...slide,
                         [field]: value,
@@ -2425,16 +2537,16 @@ export function PowerPointEditor() {
         const copiedSlide = {
             ...selectedSlide,
             id: createId(),
-            title: `${selectedSlide.title} Copy`,
+            title: `${selectedSlide.title || "Untitled Slide"} Copy`,
         };
 
         setSlides((previousSlides) => {
             const nextSlides = [...previousSlides];
-            nextSlides.splice(selectedIndex + 1, 0, copiedSlide);
+            nextSlides.splice(safeSelectedIndex + 1, 0, copiedSlide);
             return nextSlides;
         });
 
-        setSelectedIndex(selectedIndex + 1);
+        setSelectedIndex(safeSelectedIndex + 1);
     }
 
     function deleteSlide(indexToDelete) {
@@ -2456,7 +2568,7 @@ export function PowerPointEditor() {
         });
 
         setSelectedIndex((previousIndex) => {
-            if (previousIndex === 0) {
+            if (previousIndex <= 0) {
                 return 0;
             }
 
@@ -2669,25 +2781,39 @@ export function PowerPointEditor() {
                 </Stack>
             </Box>
 
-            <Grid container sx={{ minHeight: "76vh" }}>
+            <Grid
+                container
+                sx={{
+                    minHeight: "76vh",
+                    width: "100%",
+                    overflow: "hidden",
+                }}
+            >
                 <Grid
                     item
                     xs={12}
                     md={3}
-                    lg={2.6}
+                    lg={3}
                     sx={{
+                        minWidth: 0,
                         borderRight: { md: "1px solid rgba(255,255,255,.1)" },
                         background: "rgba(0,0,0,.2)",
                     }}
                 >
-                    <Box sx={{ p: 2 }}>
+                    <Box
+                        sx={{
+                            p: 2,
+                            maxHeight: { md: "76vh" },
+                            overflowY: "auto",
+                        }}
+                    >
                         <Typography variant="h6" sx={{ fontWeight: 950, mb: 2 }}>
                             Slides
                         </Typography>
 
                         <Stack spacing={1.25}>
                             {slides.map((slide, index) => {
-                                const active = selectedIndex === index;
+                                const active = safeSelectedIndex === index;
                                 const theme = getTheme(slide.theme);
 
                                 return (
@@ -2734,6 +2860,10 @@ export function PowerPointEditor() {
                                                                 fontSize: 9,
                                                                 fontWeight: 950,
                                                                 lineHeight: 1.05,
+                                                                overflow: "hidden",
+                                                                display: "-webkit-box",
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: "vertical",
                                                             }}
                                                         >
                                                             {slide.title}
@@ -2747,6 +2877,10 @@ export function PowerPointEditor() {
                                                                 fontSize: 6.5,
                                                                 mt: 0.5,
                                                                 lineHeight: 1.15,
+                                                                overflow: "hidden",
+                                                                display: "-webkit-box",
+                                                                WebkitLineClamp: 4,
+                                                                WebkitBoxOrient: "vertical",
                                                             }}
                                                         >
                                                             {slide.body}
@@ -2786,7 +2920,7 @@ export function PowerPointEditor() {
                     </Box>
                 </Grid>
 
-                <Grid item xs={12} md={6.2} lg={6.8}>
+                <Grid item xs={12} md={6} lg={6} sx={{ minWidth: 0 }}>
                     <Box
                         sx={{
                             height: "100%",
@@ -2798,7 +2932,7 @@ export function PowerPointEditor() {
                                 "linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.22))",
                         }}
                     >
-                        <Box sx={{ width: "100%", maxWidth: 980 }}>
+                        <Box sx={{ width: "100%", maxWidth: 980, minWidth: 0 }}>
                             <Box
                                 sx={{
                                     aspectRatio: "16 / 9",
@@ -2806,13 +2940,6 @@ export function PowerPointEditor() {
                                     borderRadius: 4,
                                     overflow: "hidden",
                                     position: "relative",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    justifyContent: "center",
-                                    p:
-                                        selectedSlide.layout === "big-title"
-                                            ? { xs: 4, md: 7 }
-                                            : { xs: 3.5, md: 6 },
                                     background: selectedTheme.background,
                                     border: "1px solid rgba(255,255,255,.16)",
                                     boxShadow: "0 30px 100px rgba(0,0,0,.45)",
@@ -2822,70 +2949,107 @@ export function PowerPointEditor() {
                                     variant="overline"
                                     sx={{
                                         position: "absolute",
-                                        top: 20,
-                                        left: 24,
+                                        top: 16,
+                                        left: 22,
+                                        zIndex: 2,
                                         color: selectedTheme.light ? "#2563eb" : "#9ee8ff",
                                         fontWeight: 950,
                                         letterSpacing: 1.4,
+                                        fontSize: { xs: 9, md: 12 },
+                                        pointerEvents: "none",
                                     }}
                                 >
-                                    Slide {selectedIndex + 1}
+                                    Slide {safeSelectedIndex + 1}
                                 </Typography>
 
                                 <Box
-                                    contentEditable
-                                    suppressContentEditableWarning
-                                    onInput={(event) =>
-                                        updateSelectedSlide("title", event.currentTarget.innerText)
-                                    }
                                     sx={{
-                                        outline: "none",
-                                        color: selectedTheme.light ? "#111827" : "white",
-                                        fontWeight: 950,
-                                        fontSize:
-                                            selectedSlide.layout === "big-title"
-                                                ? { xs: 38, md: 76 }
-                                                : { xs: 30, md: 58 },
-                                        lineHeight: 0.98,
-                                        mb: 2,
-                                        maxWidth: selectedSlide.layout === "section" ? "100%" : 880,
-                                        "&:focus": {
-                                            boxShadow: "0 0 0 3px rgba(158,232,255,.35)",
-                                            borderRadius: 2,
+                                        height: "100%",
+                                        width: "100%",
+                                        minHeight: 0,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        justifyContent: slideFit.justify,
+                                        pt: { xs: 5, md: 6 },
+                                        pb: { xs: 4, md: 5 },
+                                        px: {
+                                            xs: slideFit.paddingXs,
+                                            md: slideFit.paddingMd,
                                         },
+                                        overflow: "hidden",
                                     }}
                                 >
-                                    {selectedSlide.title}
-                                </Box>
-
-                                {selectedSlide.layout !== "big-title" && (
                                     <Box
-                                        contentEditable
-                                        suppressContentEditableWarning
-                                        onInput={(event) =>
-                                            updateSelectedSlide("body", event.currentTarget.innerText)
-                                        }
                                         sx={{
-                                            outline: "none",
-                                            color: selectedTheme.light
-                                                ? "rgba(17,24,39,.72)"
-                                                : "rgba(255,255,255,.78)",
-                                            whiteSpace: "pre-wrap",
-                                            fontSize:
-                                                selectedSlide.layout === "section"
-                                                    ? { xs: 18, md: 30 }
-                                                    : { xs: 16, md: 25 },
-                                            lineHeight: 1.35,
-                                            maxWidth: 840,
-                                            "&:focus": {
-                                                boxShadow: "0 0 0 3px rgba(158,232,255,.35)",
-                                                borderRadius: 2,
-                                            },
+                                            minHeight: 0,
+                                            maxHeight: "100%",
+                                            overflowY: "auto",
+                                            overflowX: "hidden",
+                                            pr: 0.5,
+                                            scrollbarWidth: "thin",
                                         }}
                                     >
-                                        {selectedSlide.body}
+                                        <Box
+                                            contentEditable
+                                            suppressContentEditableWarning
+                                            onInput={(event) =>
+                                                updateSelectedSlide("title", event.currentTarget.innerText)
+                                            }
+                                            sx={{
+                                                outline: "none",
+                                                color: selectedTheme.light ? "#111827" : "white",
+                                                fontWeight: 950,
+                                                fontSize: {
+                                                    xs: slideFit.titleXs,
+                                                    md: slideFit.titleMd,
+                                                },
+                                                lineHeight: 1.04,
+                                                mb: selectedSlide.layout === "big-title" ? 0 : 1.35,
+                                                maxWidth: "100%",
+                                                overflowWrap: "anywhere",
+                                                wordBreak: "break-word",
+                                                whiteSpace: "pre-wrap",
+                                                "&:focus": {
+                                                    boxShadow: "0 0 0 3px rgba(158,232,255,.35)",
+                                                    borderRadius: 2,
+                                                },
+                                            }}
+                                        >
+                                            {selectedSlide.title}
+                                        </Box>
+
+                                        {selectedSlide.layout !== "big-title" && (
+                                            <Box
+                                                contentEditable
+                                                suppressContentEditableWarning
+                                                onInput={(event) =>
+                                                    updateSelectedSlide("body", event.currentTarget.innerText)
+                                                }
+                                                sx={{
+                                                    outline: "none",
+                                                    color: selectedTheme.light
+                                                        ? "rgba(17,24,39,.72)"
+                                                        : "rgba(255,255,255,.78)",
+                                                    whiteSpace: "pre-wrap",
+                                                    fontSize: {
+                                                        xs: slideFit.bodyXs,
+                                                        md: slideFit.bodyMd,
+                                                    },
+                                                    lineHeight: 1.24,
+                                                    maxWidth: "100%",
+                                                    overflowWrap: "anywhere",
+                                                    wordBreak: "break-word",
+                                                    "&:focus": {
+                                                        boxShadow: "0 0 0 3px rgba(158,232,255,.35)",
+                                                        borderRadius: 2,
+                                                    },
+                                                }}
+                                            >
+                                                {selectedSlide.body}
+                                            </Box>
+                                        )}
                                     </Box>
-                                )}
+                                </Box>
 
                                 <Box
                                     sx={{
@@ -2898,6 +3062,7 @@ export function PowerPointEditor() {
                                         background: selectedTheme.light
                                             ? "rgba(37,99,235,.4)"
                                             : "rgba(158,232,255,.4)",
+                                        pointerEvents: "none",
                                     }}
                                 />
                             </Box>
@@ -2909,7 +3074,7 @@ export function PowerPointEditor() {
                                     textAlign: "center",
                                 }}
                             >
-                                Click directly on the slide title or body text to edit.
+                                Click directly on the slide title or body text to edit. Long imported slides auto-fit and scroll inside the slide instead of clipping.
                             </Typography>
                         </Box>
                     </Box>
@@ -2918,14 +3083,21 @@ export function PowerPointEditor() {
                 <Grid
                     item
                     xs={12}
-                    md={2.8}
-                    lg={2.6}
+                    md={3}
+                    lg={3}
                     sx={{
+                        minWidth: 0,
                         borderLeft: { md: "1px solid rgba(255,255,255,.1)" },
                         background: "rgba(0,0,0,.16)",
                     }}
                 >
-                    <Box sx={{ p: 2 }}>
+                    <Box
+                        sx={{
+                            p: 2,
+                            maxHeight: { md: "76vh" },
+                            overflowY: "auto",
+                        }}
+                    >
                         <Typography variant="h6" sx={{ fontWeight: 950, mb: 2 }}>
                             Slide Details
                         </Typography>
@@ -2936,14 +3108,9 @@ export function PowerPointEditor() {
                                 value={selectedSlide.title}
                                 onChange={(event) => updateSelectedSlide("title", event.target.value)}
                                 multiline
-                                minRows={2}
+                                rows={2}
                                 fullWidth
-                                sx={{
-                                    "& .MuiInputBase-root": {
-                                        background: "rgba(0,0,0,.22)",
-                                        alignItems: "flex-start",
-                                    },
-                                }}
+                                sx={stableMultilineSx}
                             />
 
                             <TextField
@@ -2951,14 +3118,9 @@ export function PowerPointEditor() {
                                 value={selectedSlide.body}
                                 onChange={(event) => updateSelectedSlide("body", event.target.value)}
                                 multiline
-                                minRows={6}
+                                rows={6}
                                 fullWidth
-                                sx={{
-                                    "& .MuiInputBase-root": {
-                                        background: "rgba(0,0,0,.22)",
-                                        alignItems: "flex-start",
-                                    },
-                                }}
+                                sx={stableMultilineSx}
                             />
 
                             <TextField
@@ -2966,14 +3128,9 @@ export function PowerPointEditor() {
                                 value={selectedSlide.notes}
                                 onChange={(event) => updateSelectedSlide("notes", event.target.value)}
                                 multiline
-                                minRows={8}
+                                rows={8}
                                 fullWidth
-                                sx={{
-                                    "& .MuiInputBase-root": {
-                                        background: "rgba(0,0,0,.22)",
-                                        alignItems: "flex-start",
-                                    },
-                                }}
+                                sx={stableMultilineSx}
                             />
 
                             <Button
@@ -3019,9 +3176,7 @@ export function PowerPointEditor() {
                                     },
                                 }}
                             >
-                                PPTX import reads slide text and notes. Complex animations,
-                                videos, SmartArt, and exact PowerPoint styling are not fully
-                                recreated in this frontend parser.
+                                PPTX import reads slide text and notes. Complex animations, videos, SmartArt, images, and exact PowerPoint styling are not fully recreated in this frontend parser.
                             </Alert>
                         </Stack>
                     </Box>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Container, Stack, Typography } from "@mui/material";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
+
 import {
     AppNavBar,
     GradientPage,
@@ -8,9 +9,18 @@ import {
     WordEditor,
 } from "../components/components";
 
+import HelmetHeader from "../components/HelmetHeader";
+
 export default function Word() {
     return (
         <GradientPage>
+            <HelmetHeader
+                title="Word Editor"
+                path="/word"
+                description="Import DOCX files, type directly on a document page, use formatting controls, and export documents as HTML, TXT, or Word-compatible DOC files."
+                keywords="Word editor, DOCX editor, browser document editor, online word processor, edit DOCX, frontend Word editor"
+            />
+
             <AppNavBar />
 
             <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
