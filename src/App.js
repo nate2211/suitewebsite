@@ -8,7 +8,7 @@ import Csv from "./pages/csv";
 import Word from "./pages/word";
 import PowerPoint from "./pages/powerpoint";
 import Pdf from "./pages/pdf";
-
+import AdditionalPages from "./pages/additionalpages";
 const theme = createTheme({
   palette: {
     mode: "dark",
@@ -62,6 +62,14 @@ export default function App() {
               <Route path="/word" element={<Word />} />
               <Route path="/powerpoint" element={<PowerPoint />} />
               <Route path="/pdf" element={<Pdf />} />
+              <Route path="/office-tools" element={<AdditionalPages />} />
+              <Route path="/convert-pdf" element={<AdditionalPages />} />
+              <Route path="/convert-word" element={<AdditionalPages />} />
+              <Route path="/view-pdf" element={<AdditionalPages />} />
+              <Route path="/view-word" element={<AdditionalPages />} />
+              <Route path="/view-powerpoint" element={<AdditionalPages />} />
+              <Route path="/view-csv" element={<AdditionalPages />} />
+              <Route path="/sign-document" element={<AdditionalPages />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
