@@ -7,6 +7,7 @@ import {
     CardContent,
     Chip,
     Container,
+    Divider,
     Grid,
     Stack,
     Typography,
@@ -20,7 +21,6 @@ import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import FileDownloadRoundedIcon from "@mui/icons-material/FileDownloadRounded";
 import CloudOffRoundedIcon from "@mui/icons-material/CloudOffRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
-import CampaignRoundedIcon from "@mui/icons-material/CampaignRounded";
 import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
@@ -30,6 +30,10 @@ import TransformRoundedIcon from "@mui/icons-material/TransformRounded";
 import BorderColorRoundedIcon from "@mui/icons-material/BorderColorRounded";
 import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
 import FindInPageRoundedIcon from "@mui/icons-material/FindInPageRounded";
+import VideoFileRoundedIcon from "@mui/icons-material/VideoFileRounded";
+import FolderZipRoundedIcon from "@mui/icons-material/FolderZipRounded";
+import CleaningServicesRoundedIcon from "@mui/icons-material/CleaningServicesRounded";
+import DataObjectRoundedIcon from "@mui/icons-material/DataObjectRounded";
 
 import {
     AppNavBar,
@@ -40,14 +44,14 @@ import {
 import HelmetHeader from "../components/HelmetHeader";
 
 export default function Home() {
-    const tools = [
+    const coreEditors = [
         {
             title: "CSV Editor",
             path: "/csv",
             icon: <TableChartRoundedIcon />,
             description:
                 "Upload, edit, add rows, add columns, search, copy, and export CSV files in an Excel-style grid.",
-            button: "Open CSV",
+            button: "Open CSV Editor",
         },
         {
             title: "Word Editor",
@@ -55,7 +59,7 @@ export default function Home() {
             icon: <DescriptionRoundedIcon />,
             description:
                 "Import DOCX files, type directly on a document page, format text, insert tables, and export documents.",
-            button: "Open Word",
+            button: "Open Word Editor",
         },
         {
             title: "PowerPoint Editor",
@@ -63,7 +67,7 @@ export default function Home() {
             icon: <SlideshowRoundedIcon />,
             description:
                 "Import PPTX files, edit slide thumbnails, use slide layouts, manage speaker notes, and export presentations.",
-            button: "Open PowerPoint",
+            button: "Open PowerPoint Editor",
         },
         {
             title: "PDF Editor",
@@ -71,82 +75,239 @@ export default function Home() {
             icon: <PictureAsPdfRoundedIcon />,
             description:
                 "Import PDFs, preview pages, add text, highlights, rectangles, ink notes, signatures, and export an edited PDF.",
-            button: "Open PDF",
+            button: "Open PDF Editor",
         },
     ];
 
-    const additionalTools = [
+    const topWorkflowLinks = [
+        {
+            path: "/office-tools",
+            label: "Office Tools Hub",
+            sublabel: "All focused utility pages",
+            icon: <AppsRoundedIcon />,
+        },
+        {
+            path: "/compress-video",
+            label: "Compress Video",
+            sublabel: "MP4, MOV, WEBM upload help",
+            icon: <VideoFileRoundedIcon />,
+        },
+        {
+            path: "/compress-mp4",
+            label: "Compress MP4",
+            sublabel: "Reduce MP4 file size",
+            icon: <VideoFileRoundedIcon />,
+        },
+        {
+            path: "/compress-mov",
+            label: "Compress MOV",
+            sublabel: "QuickTime and iPhone videos",
+            icon: <VideoFileRoundedIcon />,
+        },
+        {
+            path: "/convert-csv",
+            label: "Convert CSV",
+            sublabel: "CSV, TSV, JSON, PDF exports",
+            icon: <TableChartRoundedIcon />,
+        },
+        {
+            path: "/csv-to-json",
+            label: "CSV to JSON",
+            sublabel: "Developer data conversion",
+            icon: <DataObjectRoundedIcon />,
+        },
+        {
+            path: "/compress-zip",
+            label: "Compress ZIP",
+            sublabel: "Clean and rebuild archives",
+            icon: <FolderZipRoundedIcon />,
+        },
+        {
+            path: "/sign-document",
+            label: "Sign Document",
+            sublabel: "Draw and place PDF signatures",
+            icon: <BorderColorRoundedIcon />,
+        },
+    ];
+
+    const enterpriseHighlights = [
+        {
+            title: "Frontend-only workflow",
+            icon: <CloudOffRoundedIcon />,
+            description:
+                "Files are handled in the browser with local JavaScript APIs, Blob exports, PDF rendering, document parsing, ZIP processing, and FFmpeg.wasm video compression.",
+        },
+        {
+            title: "Direct task pages",
+            icon: <FindInPageRoundedIcon />,
+            description:
+                "SEO-friendly routes help users land directly on the exact tool they need: compress MP4, convert CSV to JSON, sign a PDF, or view a Word file.",
+        },
+        {
+            title: "Helpdesk-ready utilities",
+            icon: <WorkspacePremiumRoundedIcon />,
+            description:
+                "Useful for real office and campus support issues like large webcam uploads, ZIP cleanup, document signing, CSV cleanup, and format conversion.",
+        },
+    ];
+
+    const compressionTools = [
+        {
+            title: "Compress Video",
+            path: "/compress-video",
+            icon: <VideoFileRoundedIcon />,
+            badge: "MP4 / MOV / WEBM",
+            description:
+                "Upload MP4, MOV, or WEBM files and compress them into smaller MP4 videos for email, LMS, or instructor upload.",
+        },
+        {
+            title: "Compress MP4",
+            path: "/compress-mp4",
+            icon: <VideoFileRoundedIcon />,
+            badge: "MP4",
+            description:
+                "Reduce MP4 file size with browser FFmpeg compression controls for bitrate, frame rate, and output quality.",
+        },
+        {
+            title: "Compress MOV",
+            path: "/compress-mov",
+            icon: <VideoFileRoundedIcon />,
+            badge: "QuickTime / iPhone",
+            description:
+                "Shrink MOV videos from iPhone, QuickTime, Mac, webcam, or classroom recording workflows into smaller MP4 exports.",
+        },
+        {
+            title: "Compress ZIP",
+            path: "/compress-zip",
+            icon: <FolderZipRoundedIcon />,
+            badge: "ZIP",
+            description:
+                "Remove common junk files and rebuild ZIP archives with maximum browser-side DEFLATE compression.",
+        },
+    ];
+
+    const csvTools = [
+        {
+            title: "Convert CSV",
+            path: "/convert-csv",
+            icon: <TableChartRoundedIcon />,
+            badge: "CSV Hub",
+            description:
+                "Upload CSV, TSV, or JSON and export cleaned CSV, JSON, delimiter-adjusted files, or PDF table output.",
+        },
+        {
+            title: "CSV to JSON",
+            path: "/csv-to-json",
+            icon: <DataObjectRoundedIcon />,
+            badge: "Developer",
+            description:
+                "Convert spreadsheet rows into structured JSON objects using the first row as clean field names.",
+        },
+        {
+            title: "JSON to CSV",
+            path: "/json-to-csv",
+            icon: <DataObjectRoundedIcon />,
+            badge: "Developer",
+            description:
+                "Convert JSON arrays or objects into spreadsheet-ready CSV rows that can be opened in Excel-style tools.",
+        },
+        {
+            title: "CSV Cleaner",
+            path: "/csv-cleaner",
+            icon: <CleaningServicesRoundedIcon />,
+            badge: "Cleanup",
+            description:
+                "Trim extra spaces, remove blank rows, normalize row widths, and export a cleaned CSV copy.",
+        },
+        {
+            title: "Remove CSV Duplicates",
+            path: "/remove-duplicate-csv-rows",
+            icon: <CleaningServicesRoundedIcon />,
+            badge: "Deduplicate",
+            description:
+                "Detect repeated rows, remove duplicate CSV entries, and export a deduplicated spreadsheet file.",
+        },
+        {
+            title: "CSV Delimiter Converter",
+            path: "/csv-delimiter-converter",
+            icon: <TransformRoundedIcon />,
+            badge: "CSV / TSV",
+            description:
+                "Convert comma, semicolon, tab, or pipe-delimited data into the delimiter format you need.",
+        },
+        {
+            title: "CSV to PDF",
+            path: "/csv-to-pdf",
+            icon: <PictureAsPdfRoundedIcon />,
+            badge: "PDF Export",
+            description:
+                "Turn CSV table data into a browser-generated PDF report for sharing, printing, or archiving.",
+        },
+    ];
+
+    const documentTools = [
         {
             title: "Additional Office Tools",
             path: "/office-tools",
             icon: <AppsRoundedIcon />,
             badge: "Tool Hub",
             description:
-                "Open the focused office tools hub for PDF conversion, Word conversion, viewers, CSV preview, and document signing.",
-            button: "View Office Tools",
+                "Open the complete focused tools hub for viewers, converters, signing, compression, and CSV utilities.",
         },
         {
             title: "Convert PDF",
             path: "/convert-pdf",
             icon: <TransformRoundedIcon />,
-            badge: "PDF Converter",
+            badge: "PDF",
             description:
-                "Upload a PDF and export page text, current-page PNG previews, or a browser-generated PDF copy.",
-            button: "Convert PDF",
+                "Upload a PDF and export text, a DOCX copy, page PNG previews, or a browser-generated PDF copy.",
         },
         {
             title: "Convert Word",
             path: "/convert-word",
-            icon: <TransformRoundedIcon />,
-            badge: "DOCX Converter",
-            description:
-                "Upload a DOCX file, convert it to browser-readable HTML or plain text, and export the result.",
-            button: "Convert Word",
-        },
-        {
-            title: "View PDF",
-            path: "/view-pdf",
-            icon: <PictureAsPdfRoundedIcon />,
-            badge: "PDF Viewer",
-            description:
-                "Upload and view PDF pages in the browser with page navigation and zoom controls.",
-            button: "View PDF",
-        },
-        {
-            title: "View Word",
-            path: "/view-word",
             icon: <DescriptionRoundedIcon />,
-            badge: "DOCX Viewer",
+            badge: "DOCX",
             description:
-                "Preview a Word document in the browser with readable paragraphs, headings, lists, and tables.",
-            button: "View Word",
-        },
-        {
-            title: "View PowerPoint",
-            path: "/view-powerpoint",
-            icon: <SlideshowRoundedIcon />,
-            badge: "PPTX Viewer",
-            description:
-                "Upload a PowerPoint file and view extracted slide text, titles, and readable slide content.",
-            button: "View PowerPoint",
-        },
-        {
-            title: "View CSV",
-            path: "/view-csv",
-            icon: <TableChartRoundedIcon />,
-            badge: "CSV Viewer",
-            description:
-                "Upload a CSV file and preview it as a clean spreadsheet-style table directly in the browser.",
-            button: "View CSV",
+                "Upload a DOCX file and export PDF, HTML, plain text, or a simplified browser-generated DOCX copy.",
         },
         {
             title: "Sign Document",
             path: "/sign-document",
             icon: <BorderColorRoundedIcon />,
-            badge: "Signature Tool",
+            badge: "Signature",
             description:
-                "Upload a PDF, draw a signature with mouse, pen, touch, or drawing tablet input, place it, and export a signed PDF.",
-            button: "Sign Document",
+                "Draw a signature with mouse, touch, pen, or drawing tablet, place it on a PDF, resize it, and export.",
+        },
+    ];
+
+    const viewerTools = [
+        {
+            title: "View PDF",
+            path: "/view-pdf",
+            icon: <PictureAsPdfRoundedIcon />,
+            description:
+                "Upload and preview PDF pages with page navigation, zoom controls, and browser rendering.",
+        },
+        {
+            title: "View Word",
+            path: "/view-word",
+            icon: <DescriptionRoundedIcon />,
+            description:
+                "Preview DOCX content as readable browser HTML with paragraphs, tables, and basic formatting.",
+        },
+        {
+            title: "View PowerPoint",
+            path: "/view-powerpoint",
+            icon: <SlideshowRoundedIcon />,
+            description:
+                "Extract and view readable text from PPTX slides, slide titles, and slide content.",
+        },
+        {
+            title: "View CSV",
+            path: "/view-csv",
+            icon: <TableChartRoundedIcon />,
+            description:
+                "Open CSV files as a clean spreadsheet-style table with columns and rows in the browser.",
         },
     ];
 
@@ -160,11 +321,10 @@ export default function Home() {
             description:
                 "Create sounds, sequence patterns, design synths, arrange playlists, use WebAudio effects, and export music from the browser.",
             cta: "Visit MusicStudioLab",
+            accent: "#9ee8ff",
             gradient:
                 "linear-gradient(135deg, rgba(158,232,255,.18), rgba(88,166,255,.08))",
-            border: "rgba(158,232,255,.22)",
-            iconBg: "rgba(158,232,255,.14)",
-            accent: "#9ee8ff",
+            border: "rgba(158,232,255,.24)",
         },
         {
             title: "ImageMasterLab",
@@ -173,13 +333,12 @@ export default function Home() {
             icon: <ImageRoundedIcon />,
             badge: "Browser Image Editor",
             description:
-                "Edit images, add layers, use text tools, draw selections, make creative graphics, and export polished image files.",
+                "Edit images, add layers, use text tools, draw selections, make graphics, and export polished image files.",
             cta: "Visit ImageMasterLab",
-            gradient:
-                "linear-gradient(135deg, rgba(179,140,255,.18), rgba(255,255,255,.05))",
-            border: "rgba(179,140,255,.24)",
-            iconBg: "rgba(179,140,255,.14)",
             accent: "#b38cff",
+            gradient:
+                "linear-gradient(135deg, rgba(179,140,255,.2), rgba(255,255,255,.05))",
+            border: "rgba(179,140,255,.28)",
         },
         {
             title: "AudioMasterLab",
@@ -190,11 +349,10 @@ export default function Home() {
             description:
                 "Upload audio, preview waveforms, apply mastering effects, shape volume and tone, and export improved audio directly.",
             cta: "Visit AudioMasterLab",
-            gradient:
-                "linear-gradient(135deg, rgba(112,255,214,.14), rgba(158,232,255,.08))",
-            border: "rgba(112,255,214,.2)",
-            iconBg: "rgba(112,255,214,.12)",
             accent: "#70ffd6",
+            gradient:
+                "linear-gradient(135deg, rgba(112,255,214,.16), rgba(158,232,255,.08))",
+            border: "rgba(112,255,214,.24)",
         },
     ];
 
@@ -203,34 +361,22 @@ export default function Home() {
             <HelmetHeader
                 title="Frontend Browser Office Suite"
                 path="/"
-                description="SuiteOfficeLab is a frontend-only browser office suite for editing CSV, Word-style documents, PowerPoint-style slides, and PDFs. Use focused tools to convert PDFs, convert Word documents, view PDFs, view Word files, view PowerPoint files, view CSV files, and sign documents online."
-                keywords="SuiteOfficeLab, browser office suite, frontend office editor, CSV editor, Word editor, PowerPoint editor, PDF editor, convert PDF online, convert Word online, view PDF online, view Word document online, view PowerPoint online, view CSV online, sign PDF online, sign document online"
+                description="SuiteOfficeLab is a frontend-only browser office suite for editing CSV, Word-style documents, PowerPoint-style slides, and PDFs. Use direct tools to convert PDFs, convert Word documents, compress MP4 and MOV videos, optimize ZIP files, clean CSV files, convert CSV to JSON, view documents, and sign PDFs online."
+                keywords="SuiteOfficeLab, browser office suite, frontend office editor, CSV editor, Word editor, PowerPoint editor, PDF editor, compress video online, compress MP4 online, compress MOV online, compress ZIP online, convert CSV online, CSV to JSON, JSON to CSV, CSV cleaner, CSV delimiter converter, CSV to PDF, convert PDF online, convert Word online, view PDF online, sign PDF online"
             />
 
             <AppNavBar />
 
             <Container maxWidth="xl" sx={{ py: { xs: 5, md: 8 } }}>
                 <Grid container spacing={3.5} alignItems="center">
-                    <Grid item xs={12} lg={8}>
+                    <Grid item xs={12} lg={7.4}>
                         <Stack
                             spacing={3}
                             alignItems={{ xs: "center", lg: "flex-start" }}
                             textAlign={{ xs: "center", lg: "left" }}
                         >
-                            <Box
-                                sx={{
-                                    width: 94,
-                                    height: 94,
-                                    borderRadius: "30px",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    background:
-                                        "linear-gradient(135deg, rgba(158,232,255,.24), rgba(179,140,255,.2))",
-                                    border: "1px solid rgba(255,255,255,.16)",
-                                    boxShadow: "0 24px 80px rgba(0,0,0,.45)",
-                                }}
-                            >
-                                <AutoAwesomeRoundedIcon sx={{ fontSize: 54, color: "#9ee8ff" }} />
+                            <Box sx={heroIconSx}>
+                                <AutoAwesomeRoundedIcon sx={{ fontSize: 56, color: "#9ee8ff" }} />
                             </Box>
 
                             <Stack
@@ -248,13 +394,13 @@ export default function Home() {
 
                                 <Chip
                                     icon={<BoltRoundedIcon />}
-                                    label="Frontend-only exports"
+                                    label="Frontend-only file tools"
                                     sx={heroChipMutedSx}
                                 />
 
                                 <Chip
                                     icon={<FindInPageRoundedIcon />}
-                                    label="Focused SEO tool pages"
+                                    label="Direct SEO utility pages"
                                     sx={heroChipMutedSx}
                                 />
                             </Stack>
@@ -269,22 +415,20 @@ export default function Home() {
                                     letterSpacing: "-0.055em",
                                 }}
                             >
-                                Edit, view, convert, and sign office files from one frontend app.
+                                Enterprise-style browser tools for documents, CSV data, PDFs, ZIPs, and video uploads.
                             </Typography>
 
                             <Typography
                                 sx={{
-                                    maxWidth: 960,
+                                    maxWidth: 980,
                                     color: "rgba(255,255,255,.72)",
                                     fontSize: { xs: 16, md: 19 },
-                                    lineHeight: 1.7,
+                                    lineHeight: 1.75,
                                 }}
                             >
-                                SuiteOfficeLab gives you full editors for CSV, Word-style documents,
-                                PowerPoint-style slides, and PDFs. It also includes focused direct
-                                pages for converting PDFs, converting Word documents, viewing PDFs,
-                                viewing Word documents, viewing PowerPoint files, viewing CSV files,
-                                and signing PDF documents with mouse, pen, touch, or drawing tablet input.
+                                SuiteOfficeLab combines full browser editors with focused one-task utility pages.
+                                Edit office files, sign PDFs, clean CSV data, convert CSV to JSON, compress MP4 or MOV
+                                webcam videos, and optimize ZIP archives without building a backend upload system.
                             </Typography>
 
                             <Stack
@@ -300,29 +444,29 @@ export default function Home() {
                                     startIcon={<AppsRoundedIcon />}
                                     sx={primaryButtonSx}
                                 >
-                                    Open Additional Tools
+                                    Open Office Tools
                                 </Button>
 
                                 <Button
                                     component={RouterLink}
-                                    to="/sign-document"
+                                    to="/compress-video"
                                     size="large"
                                     variant="outlined"
-                                    startIcon={<BorderColorRoundedIcon />}
+                                    startIcon={<VideoFileRoundedIcon />}
                                     sx={outlineButtonSx}
                                 >
-                                    Sign a Document
+                                    Compress Video
                                 </Button>
 
                                 <Button
                                     component={RouterLink}
-                                    to="/pdf"
+                                    to="/convert-csv"
                                     size="large"
                                     variant="outlined"
-                                    startIcon={<PictureAsPdfRoundedIcon />}
+                                    startIcon={<TableChartRoundedIcon />}
                                     sx={outlineButtonSx}
                                 >
-                                    Open PDF Editor
+                                    Convert CSV
                                 </Button>
                             </Stack>
 
@@ -335,11 +479,12 @@ export default function Home() {
                                 sx={{ pt: 1 }}
                             >
                                 {[
-                                    { label: "Convert PDF", path: "/convert-pdf" },
-                                    { label: "Convert Word", path: "/convert-word" },
-                                    { label: "View PDF", path: "/view-pdf" },
-                                    { label: "View PowerPoint", path: "/view-powerpoint" },
-                                    { label: "View CSV", path: "/view-csv" },
+                                    { label: "Office Tools", path: "/office-tools" },
+                                    { label: "Compress MP4", path: "/compress-mp4" },
+                                    { label: "Compress MOV", path: "/compress-mov" },
+                                    { label: "Compress ZIP", path: "/compress-zip" },
+                                    { label: "CSV to JSON", path: "/csv-to-json" },
+                                    { label: "Sign PDF", path: "/sign-document" },
                                 ].map((link) => (
                                     <Button
                                         key={link.path}
@@ -355,44 +500,13 @@ export default function Home() {
                         </Stack>
                     </Grid>
 
-                    <Grid item xs={12} lg={4}>
-                        <Card
-                            sx={{
-                                background:
-                                    "linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
-                                border: "1px solid rgba(255,255,255,.14)",
-                                backdropFilter: "blur(22px)",
-                                boxShadow: "0 30px 90px rgba(0,0,0,.38)",
-                                overflow: "hidden",
-                                position: "relative",
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    position: "absolute",
-                                    inset: 0,
-                                    background:
-                                        "radial-gradient(circle at top right, rgba(158,232,255,.2), transparent 42%), radial-gradient(circle at bottom left, rgba(179,140,255,.18), transparent 38%)",
-                                    pointerEvents: "none",
-                                }}
-                            />
-
+                    <Grid item xs={12} lg={4.6}>
+                        <Card sx={heroPanelSx}>
                             <CardContent sx={{ p: 3, position: "relative" }}>
-                                <Stack spacing={2}>
+                                <Stack spacing={2.25}>
                                     <Stack direction="row" spacing={1.25} alignItems="center">
-                                        <Box
-                                            sx={{
-                                                width: 44,
-                                                height: 44,
-                                                borderRadius: "16px",
-                                                display: "grid",
-                                                placeItems: "center",
-                                                color: "#9ee8ff",
-                                                background: "rgba(158,232,255,.12)",
-                                                border: "1px solid rgba(158,232,255,.18)",
-                                            }}
-                                        >
-                                            <CampaignRoundedIcon />
+                                        <Box sx={panelIconSx}>
+                                            <AppsRoundedIcon />
                                         </Box>
 
                                         <Box>
@@ -400,51 +514,72 @@ export default function Home() {
                                                 variant="overline"
                                                 sx={{ color: "#9ee8ff", fontWeight: 950 }}
                                             >
-                                                New Direct Pages
+                                                Top Tool Links
                                             </Typography>
 
                                             <Typography variant="h5" sx={{ fontWeight: 950 }}>
-                                                Focused office workflows
+                                                Start with a direct workflow
                                             </Typography>
                                         </Box>
                                     </Stack>
 
                                     <Typography sx={{ color: "rgba(255,255,255,.68)", lineHeight: 1.7 }}>
-                                        These new URLs are built for users who want one fast task:
-                                        view, convert, or sign a document without opening the full editor.
+                                        The Office Tools hub stays here with the rest of the top links so users can either browse everything or jump straight into one task.
                                     </Typography>
 
-                                    {[
-                                        "/office-tools",
-                                        "/convert-pdf",
-                                        "/convert-word",
-                                        "/view-pdf",
-                                        "/view-word",
-                                        "/view-powerpoint",
-                                        "/view-csv",
-                                        "/sign-document",
-                                    ].map((path) => (
-                                        <Button
-                                            key={path}
-                                            component={RouterLink}
-                                            to={path}
-                                            endIcon={<OpenInNewRoundedIcon />}
-                                            sx={{
-                                                justifyContent: "space-between",
-                                                px: 2,
-                                                py: 1.25,
-                                                color: "white",
-                                                fontWeight: 950,
-                                                borderRadius: "16px",
-                                                border: "1px solid rgba(158,232,255,.2)",
-                                                background:
-                                                    "linear-gradient(135deg, rgba(158,232,255,.13), rgba(179,140,255,.08))",
-                                                textTransform: "none",
-                                            }}
-                                        >
-                                            {path}
-                                        </Button>
-                                    ))}
+                                    <Grid container spacing={1.25}>
+                                        {topWorkflowLinks.map((item) => (
+                                            <Grid item xs={12} sm={6} key={item.path}>
+                                                <Button
+                                                    component={RouterLink}
+                                                    to={item.path}
+                                                    endIcon={<OpenInNewRoundedIcon />}
+                                                    sx={heroRouteButtonSx}
+                                                >
+                                                    <Stack
+                                                        direction="row"
+                                                        spacing={1}
+                                                        alignItems="center"
+                                                        sx={{ minWidth: 0, width: "100%" }}
+                                                    >
+                                                        <Box sx={routeMiniIconSx}>
+                                                            {item.icon}
+                                                        </Box>
+
+                                                        <Box sx={{ minWidth: 0, textAlign: "left" }}>
+                                                            <Typography
+                                                                component="span"
+                                                                sx={{
+                                                                    display: "block",
+                                                                    fontWeight: 950,
+                                                                    fontSize: 13.5,
+                                                                    whiteSpace: "nowrap",
+                                                                    overflow: "hidden",
+                                                                    textOverflow: "ellipsis",
+                                                                }}
+                                                            >
+                                                                {item.label}
+                                                            </Typography>
+
+                                                            <Typography
+                                                                component="span"
+                                                                sx={{
+                                                                    display: "block",
+                                                                    color: "rgba(255,255,255,.55)",
+                                                                    fontSize: 11.5,
+                                                                    whiteSpace: "nowrap",
+                                                                    overflow: "hidden",
+                                                                    textOverflow: "ellipsis",
+                                                                }}
+                                                            >
+                                                                {item.sublabel}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Stack>
+                                                </Button>
+                                            </Grid>
+                                        ))}
+                                    </Grid>
                                 </Stack>
                             </CardContent>
                         </Card>
@@ -452,44 +587,20 @@ export default function Home() {
                 </Grid>
 
                 <Box sx={{ mt: { xs: 6, md: 9 } }}>
-                    <SectionHeader
-                        eyebrow="Suite Editors"
-                        title="Choose your full editor"
-                        description="Use the full editor pages when you want richer editing controls for spreadsheets, documents, presentations, and PDFs."
-                    />
-
                     <Grid container spacing={2.5}>
-                        {tools.map((tool) => (
-                            <Grid item xs={12} md={6} lg={3} key={tool.title}>
-                                <Card sx={cardSx}>
+                        {enterpriseHighlights.map((item) => (
+                            <Grid item xs={12} md={4} key={item.title}>
+                                <Card sx={enterpriseCardSx}>
                                     <CardContent sx={{ p: 3 }}>
-                                        <Box sx={iconBoxSx}>
-                                            {tool.icon}
-                                        </Box>
+                                        <Box sx={iconBoxSx}>{item.icon}</Box>
 
-                                        <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
-                                            {tool.title}
+                                        <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                            {item.title}
                                         </Typography>
 
-                                        <Typography
-                                            sx={{
-                                                color: "rgba(255,255,255,.68)",
-                                                lineHeight: 1.7,
-                                                mb: 2.5,
-                                            }}
-                                        >
-                                            {tool.description}
+                                        <Typography sx={{ color: "rgba(255,255,255,.68)", lineHeight: 1.7 }}>
+                                            {item.description}
                                         </Typography>
-
-                                        <Button
-                                            component={RouterLink}
-                                            to={tool.path}
-                                            variant="outlined"
-                                            fullWidth
-                                            sx={cardButtonSx}
-                                        >
-                                            {tool.button}
-                                        </Button>
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -499,93 +610,160 @@ export default function Home() {
 
                 <Box sx={{ mt: { xs: 6, md: 9 } }}>
                     <SectionHeader
-                        eyebrow="Additional Tool Pages"
-                        title="Focused links for viewing, converting, and signing files"
-                        description="These direct pages are useful for SEO and faster workflows. Each page is centered around one task, one upload flow, and one clear export or preview result."
+                        eyebrow="Core Editors"
+                        title="Full editors for office files"
+                        description="Use the full editor pages when you want richer controls for spreadsheets, documents, presentations, and PDFs."
                     />
 
                     <Grid container spacing={2.5}>
-                        {additionalTools.map((tool) => (
-                            <Grid item xs={12} sm={6} lg={3} key={tool.path}>
-                                <Card
-                                    component={RouterLink}
-                                    to={tool.path}
-                                    sx={{
-                                        ...cardSx,
-                                        textDecoration: "none",
-                                        display: "block",
-                                        transition: "transform 180ms ease, border-color 180ms ease",
-                                        "&:hover": {
-                                            transform: "translateY(-5px)",
-                                            borderColor: "rgba(158,232,255,.42)",
-                                        },
-                                    }}
-                                >
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Stack spacing={2}>
-                                            <Stack direction="row" spacing={1.25} alignItems="center">
-                                                <Box sx={iconBoxSx}>
-                                                    {tool.icon}
-                                                </Box>
-
-                                                <Chip
-                                                    label={tool.badge}
-                                                    size="small"
-                                                    sx={{
-                                                        color: "#dff8ff",
-                                                        fontWeight: 950,
-                                                        border: "1px solid rgba(158,232,255,.22)",
-                                                        background: "rgba(158,232,255,.08)",
-                                                    }}
-                                                />
-                                            </Stack>
-
-                                            <Box>
-                                                <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
-                                                    {tool.title}
-                                                </Typography>
-
-                                                <Typography
-                                                    sx={{
-                                                        color: "rgba(255,255,255,.68)",
-                                                        lineHeight: 1.7,
-                                                    }}
-                                                >
-                                                    {tool.description}
-                                                </Typography>
-                                            </Box>
-
-                                            <Typography
-                                                sx={{
-                                                    color: "#9ee8ff",
-                                                    fontWeight: 950,
-                                                    fontSize: 13,
-                                                }}
-                                            >
-                                                {tool.path}
-                                            </Typography>
-
-                                            <Button
-                                                component="span"
-                                                variant="outlined"
-                                                fullWidth
-                                                sx={cardButtonSx}
-                                            >
-                                                {tool.button}
-                                            </Button>
-                                        </Stack>
-                                    </CardContent>
-                                </Card>
+                        {coreEditors.map((tool) => (
+                            <Grid item xs={12} md={6} lg={3} key={tool.title}>
+                                <ToolCard tool={tool} />
                             </Grid>
                         ))}
                     </Grid>
                 </Box>
 
-                <Box sx={{ mt: { xs: 6, md: 8 } }}>
+                <Box sx={{ mt: { xs: 6, md: 9 } }}>
+                    <SectionHeader
+                        eyebrow="Compression Tools"
+                        title="Shrink videos and ZIP files for real upload problems"
+                        description="These tools are built around common helpdesk issues: webcam videos that are too large for instructor upload, MOV files from iPhones or Macs, and ZIP archives that need cleanup."
+                    />
+
+                    <Grid container spacing={2.5}>
+                        {compressionTools.map((tool) => (
+                            <Grid item xs={12} sm={6} lg={3} key={tool.path}>
+                                <DirectToolCard tool={tool} />
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Box>
+
+                <Box sx={{ mt: { xs: 6, md: 9 } }}>
+                    <SectionHeader
+                        eyebrow="CSV Tools"
+                        title="Convert, clean, and export spreadsheet data"
+                        description="Focused CSV pages help users solve one data problem at a time: JSON conversion, delimiter conversion, duplicate removal, CSV cleaning, and PDF export."
+                    />
+
+                    <Grid container spacing={2.5}>
+                        {csvTools.map((tool) => (
+                            <Grid item xs={12} sm={6} lg={3} key={tool.path}>
+                                <DirectToolCard tool={tool} />
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Box>
+
+                <Box sx={{ mt: { xs: 6, md: 9 } }}>
+                    <SectionHeader
+                        eyebrow="Document Workflows"
+                        title="Convert, view, and sign office documents"
+                        description="Direct pages for high-value document tasks that users search for: PDF conversion, Word conversion, viewing files online, and signing PDFs."
+                    />
+
+                    <Grid container spacing={2.5}>
+                        {documentTools.map((tool) => (
+                            <Grid item xs={12} sm={6} lg={3} key={tool.path}>
+                                <DirectToolCard tool={tool} />
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Box>
+
+                <Box sx={{ mt: { xs: 6, md: 9 } }}>
+                    <SectionHeader
+                        eyebrow="Online Viewers"
+                        title="Preview files without opening a desktop app"
+                        description="Browser viewers for PDFs, DOCX documents, PowerPoint files, and CSV tables."
+                    />
+
+                    <Grid container spacing={2.5}>
+                        {viewerTools.map((tool) => (
+                            <Grid item xs={12} sm={6} lg={3} key={tool.path}>
+                                <DirectToolCard tool={tool} compact />
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Box>
+
+                <Box sx={{ mt: { xs: 6, md: 9 } }}>
+                    <Card sx={ctaPanelSx}>
+                        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                            <Grid container spacing={3} alignItems="center">
+                                <Grid item xs={12} md={8}>
+                                    <Chip
+                                        label="Frontend productivity stack"
+                                        sx={{
+                                            mb: 2,
+                                            color: "#9ee8ff",
+                                            fontWeight: 950,
+                                            border: "1px solid rgba(158,232,255,.24)",
+                                            background: "rgba(158,232,255,.08)",
+                                        }}
+                                    />
+
+                                    <Typography
+                                        variant="h3"
+                                        sx={{
+                                            fontWeight: 950,
+                                            letterSpacing: "-0.045em",
+                                            mb: 1,
+                                        }}
+                                    >
+                                        One site for office editing, file conversion, compression, and exports.
+                                    </Typography>
+
+                                    <Typography sx={{ color: "rgba(255,255,255,.7)", lineHeight: 1.75 }}>
+                                        SuiteOfficeLab is structured like an enterprise web app: a clear hub,
+                                        categorized tools, direct task URLs, local browser processing, and export-first workflows.
+                                    </Typography>
+                                </Grid>
+
+                                <Grid item xs={12} md={4}>
+                                    <Stack spacing={1.25}>
+                                        <Button
+                                            component={RouterLink}
+                                            to="/office-tools"
+                                            variant="contained"
+                                            startIcon={<AppsRoundedIcon />}
+                                            sx={primaryButtonSx}
+                                        >
+                                            Explore Office Tools
+                                        </Button>
+
+                                        <Button
+                                            component={RouterLink}
+                                            to="/compress-video"
+                                            variant="outlined"
+                                            startIcon={<VideoFileRoundedIcon />}
+                                            sx={outlineButtonSx}
+                                        >
+                                            Compress Upload Video
+                                        </Button>
+
+                                        <Button
+                                            component={RouterLink}
+                                            to="/csv-cleaner"
+                                            variant="outlined"
+                                            startIcon={<CleaningServicesRoundedIcon />}
+                                            sx={outlineButtonSx}
+                                        >
+                                            Clean CSV File
+                                        </Button>
+                                    </Stack>
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+                </Box>
+
+                <Box sx={{ mt: { xs: 6, md: 9 } }}>
                     <SectionHeader
                         eyebrow="Sponsored Tools"
-                        title="Try our other browser apps"
-                        description="These promoted websites are part of your creative tool network and help users move from documents into music, images, and audio production."
+                        title="More browser creative apps"
+                        description="Promoted sister sites for music creation, image editing, and audio mastering."
                     />
 
                     <Grid container spacing={2.5}>
@@ -605,13 +783,14 @@ export default function Home() {
                                     <Box
                                         sx={{
                                             position: "absolute",
-                                            top: -60,
-                                            right: -60,
-                                            width: 180,
-                                            height: 180,
+                                            top: -70,
+                                            right: -70,
+                                            width: 210,
+                                            height: 210,
                                             borderRadius: "999px",
-                                            background: site.iconBg,
+                                            background: site.border,
                                             filter: "blur(4px)",
+                                            opacity: 0.55,
                                         }}
                                     />
 
@@ -626,7 +805,7 @@ export default function Home() {
                                                         display: "grid",
                                                         placeItems: "center",
                                                         color: site.accent,
-                                                        background: site.iconBg,
+                                                        background: "rgba(0,0,0,.22)",
                                                         border: `1px solid ${site.border}`,
                                                     }}
                                                 >
@@ -712,53 +891,23 @@ export default function Home() {
                     </Grid>
                 </Box>
 
-                <Box sx={{ mt: 5 }}>
+                <Box sx={{ mt: { xs: 5, md: 7 } }}>
                     <Grid container spacing={2.5}>
                         <Grid item xs={12} md={6}>
-                            <Card
-                                sx={{
-                                    height: "100%",
-                                    background: "rgba(158,232,255,.07)",
-                                    border: "1px solid rgba(158,232,255,.16)",
-                                }}
-                            >
-                                <CardContent sx={{ p: 3 }}>
-                                    <CloudOffRoundedIcon sx={{ color: "#9ee8ff", mb: 1 }} />
-
-                                    <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
-                                        Frontend-only file handling
-                                    </Typography>
-
-                                    <Typography sx={{ color: "rgba(255,255,255,.68)" }}>
-                                        Files are opened in the browser using local JavaScript APIs.
-                                        Edited exports, converted files, previews, and signed PDFs are
-                                        generated with Blob downloads, so no backend upload is required.
-                                    </Typography>
-                                </CardContent>
-                            </Card>
+                            <InfoCard
+                                icon={<CloudOffRoundedIcon />}
+                                title="Local browser file handling"
+                                description="Files are opened in the browser using local JavaScript APIs. Edited exports, converted files, compressed outputs, and signed PDFs are generated as direct downloads."
+                            />
                         </Grid>
 
                         <Grid item xs={12} md={6}>
-                            <Card
-                                sx={{
-                                    height: "100%",
-                                    background: "rgba(179,140,255,.07)",
-                                    border: "1px solid rgba(179,140,255,.16)",
-                                }}
-                            >
-                                <CardContent sx={{ p: 3 }}>
-                                    <FileDownloadRoundedIcon sx={{ color: "#b38cff", mb: 1 }} />
-
-                                    <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
-                                        Direct exports and focused previews
-                                    </Typography>
-
-                                    <Typography sx={{ color: "rgba(255,255,255,.68)" }}>
-                                        Export CSV, Word-compatible documents, HTML documents, TXT files,
-                                        PDF copies, PDF page PNGs, and signed PDFs directly from the browser.
-                                    </Typography>
-                                </CardContent>
-                            </Card>
+                            <InfoCard
+                                icon={<FileDownloadRoundedIcon />}
+                                title="Export-first user experience"
+                                description="The interface focuses on practical outputs: PDFs, DOCX files, TXT files, JSON files, CSV files, optimized ZIP archives, and compressed MP4 videos."
+                                purple
+                            />
                         </Grid>
                     </Grid>
                 </Box>
@@ -766,6 +915,127 @@ export default function Home() {
         </GradientPage>
     );
 }
+
+function ToolCard({ tool }) {
+    return (
+        <Card sx={cardSx}>
+            <CardContent sx={{ p: 3 }}>
+                <Box sx={iconBoxSx}>{tool.icon}</Box>
+
+                <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
+                    {tool.title}
+                </Typography>
+
+                <Typography
+                    sx={{
+                        color: "rgba(255,255,255,.68)",
+                        lineHeight: 1.7,
+                        mb: 2.5,
+                    }}
+                >
+                    {tool.description}
+                </Typography>
+
+                <Button
+                    component={RouterLink}
+                    to={tool.path}
+                    variant="outlined"
+                    fullWidth
+                    sx={cardButtonSx}
+                >
+                    {tool.button}
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+function DirectToolCard({ tool, compact = false }) {
+    return (
+        <Card component={RouterLink} to={tool.path} sx={directCardSx}>
+            <CardContent sx={{ p: 3 }}>
+                <Stack spacing={compact ? 1.5 : 2}>
+                    <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Box sx={iconBoxCompactSx}>{tool.icon}</Box>
+
+                        {tool.badge && (
+                            <Chip
+                                label={tool.badge}
+                                size="small"
+                                sx={{
+                                    color: "#dff8ff",
+                                    fontWeight: 950,
+                                    border: "1px solid rgba(158,232,255,.22)",
+                                    background: "rgba(158,232,255,.08)",
+                                }}
+                            />
+                        )}
+                    </Stack>
+
+                    <Box>
+                        <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
+                            {tool.title}
+                        </Typography>
+
+                        <Typography sx={{ color: "rgba(255,255,255,.68)", lineHeight: 1.7 }}>
+                            {tool.description}
+                        </Typography>
+                    </Box>
+
+                    <Divider sx={{ borderColor: "rgba(255,255,255,.1)" }} />
+
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography sx={{ color: "#9ee8ff", fontWeight: 950, fontSize: 13 }}>
+                            {tool.path}
+                        </Typography>
+
+                        <OpenInNewRoundedIcon sx={{ color: "#9ee8ff", fontSize: 18 }} />
+                    </Stack>
+                </Stack>
+            </CardContent>
+        </Card>
+    );
+}
+
+function InfoCard({ icon, title, description, purple = false }) {
+    return (
+        <Card
+            sx={{
+                height: "100%",
+                background: purple ? "rgba(179,140,255,.07)" : "rgba(158,232,255,.07)",
+                border: purple
+                    ? "1px solid rgba(179,140,255,.16)"
+                    : "1px solid rgba(158,232,255,.16)",
+            }}
+        >
+            <CardContent sx={{ p: 3 }}>
+                <Box sx={{ color: purple ? "#b38cff" : "#9ee8ff", mb: 1 }}>
+                    {icon}
+                </Box>
+
+                <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                    {title}
+                </Typography>
+
+                <Typography sx={{ color: "rgba(255,255,255,.68)", lineHeight: 1.7 }}>
+                    {description}
+                </Typography>
+            </CardContent>
+        </Card>
+    );
+}
+
+const heroIconSx = {
+    width: 96,
+    height: 96,
+    borderRadius: "30px",
+    display: "grid",
+    placeItems: "center",
+    background:
+        "linear-gradient(135deg, rgba(158,232,255,.24), rgba(179,140,255,.2))",
+    border: "1px solid rgba(255,255,255,.16)",
+    boxShadow: "0 24px 80px rgba(0,0,0,.45)",
+};
 
 const heroChipSx = {
     color: "#9ee8ff",
@@ -826,6 +1096,80 @@ const quickLinkSx = {
     },
 };
 
+const heroPanelSx = {
+    background:
+        "linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
+    border: "1px solid rgba(255,255,255,.14)",
+    backdropFilter: "blur(22px)",
+    boxShadow: "0 30px 90px rgba(0,0,0,.38)",
+    overflow: "hidden",
+    position: "relative",
+    "&:before": {
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        background:
+            "radial-gradient(circle at top right, rgba(158,232,255,.2), transparent 42%), radial-gradient(circle at bottom left, rgba(179,140,255,.18), transparent 38%)",
+        pointerEvents: "none",
+    },
+};
+
+const panelIconSx = {
+    width: 46,
+    height: 46,
+    borderRadius: "16px",
+    display: "grid",
+    placeItems: "center",
+    color: "#9ee8ff",
+    background: "rgba(158,232,255,.12)",
+    border: "1px solid rgba(158,232,255,.18)",
+};
+
+const heroRouteButtonSx = {
+    width: "100%",
+    minHeight: 72,
+    justifyContent: "space-between",
+    px: 1.25,
+    py: 1,
+    color: "white",
+    fontWeight: 950,
+    borderRadius: "16px",
+    border: "1px solid rgba(158,232,255,.2)",
+    background: "linear-gradient(135deg, rgba(158,232,255,.13), rgba(179,140,255,.08))",
+    textTransform: "none",
+    "& .MuiButton-endIcon": {
+        marginLeft: 0.75,
+    },
+    "&:hover": {
+        borderColor: "rgba(158,232,255,.42)",
+        background: "linear-gradient(135deg, rgba(158,232,255,.18), rgba(179,140,255,.12))",
+    },
+};
+
+const routeMiniIconSx = {
+    width: 34,
+    height: 34,
+    minWidth: 34,
+    borderRadius: "12px",
+    display: "grid",
+    placeItems: "center",
+    color: "#9ee8ff",
+    background: "rgba(158,232,255,.1)",
+    border: "1px solid rgba(158,232,255,.15)",
+    "& svg": {
+        fontSize: 19,
+    },
+};
+
+const enterpriseCardSx = {
+    height: "100%",
+    color: "white",
+    background: "rgba(255,255,255,.055)",
+    border: "1px solid rgba(255,255,255,.12)",
+    backdropFilter: "blur(18px)",
+    boxShadow: "0 22px 70px rgba(0,0,0,.24)",
+};
+
 const cardSx = {
     height: "100%",
     background: "rgba(255,255,255,.06)",
@@ -833,6 +1177,23 @@ const cardSx = {
     backdropFilter: "blur(18px)",
     boxShadow: "0 24px 70px rgba(0,0,0,.28)",
     color: "white",
+};
+
+const directCardSx = {
+    height: "100%",
+    textDecoration: "none",
+    color: "white",
+    display: "block",
+    background: "rgba(255,255,255,.06)",
+    border: "1px solid rgba(255,255,255,.12)",
+    backdropFilter: "blur(18px)",
+    boxShadow: "0 24px 70px rgba(0,0,0,.28)",
+    transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
+    "&:hover": {
+        transform: "translateY(-5px)",
+        borderColor: "rgba(158,232,255,.42)",
+        background: "rgba(158,232,255,.08)",
+    },
 };
 
 const iconBoxSx = {
@@ -847,6 +1208,17 @@ const iconBoxSx = {
     mb: 2,
 };
 
+const iconBoxCompactSx = {
+    width: 48,
+    height: 48,
+    borderRadius: "16px",
+    display: "grid",
+    placeItems: "center",
+    color: "#9ee8ff",
+    background: "rgba(158,232,255,.12)",
+    border: "1px solid rgba(158,232,255,.18)",
+};
+
 const cardButtonSx = {
     color: "white",
     borderColor: "rgba(255,255,255,.18)",
@@ -855,4 +1227,13 @@ const cardButtonSx = {
         borderColor: "rgba(158,232,255,.42)",
         background: "rgba(158,232,255,.08)",
     },
+};
+
+const ctaPanelSx = {
+    background:
+        "linear-gradient(135deg, rgba(158,232,255,.12), rgba(179,140,255,.1), rgba(255,255,255,.045))",
+    border: "1px solid rgba(255,255,255,.14)",
+    boxShadow: "0 30px 95px rgba(0,0,0,.32)",
+    backdropFilter: "blur(20px)",
+    color: "white",
 };

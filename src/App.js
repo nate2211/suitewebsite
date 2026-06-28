@@ -70,6 +70,18 @@ export default function App() {
               <Route path="/view-powerpoint" element={<AdditionalPages />} />
               <Route path="/view-csv" element={<AdditionalPages />} />
               <Route path="/sign-document" element={<AdditionalPages />} />
+              <Route path="/compress-video" element={<AdditionalPages />} />
+              <Route path="/compress-mp4" element={<AdditionalPages />} />
+              <Route path="/compress-mov" element={<AdditionalPages />} />
+              <Route path="/compress-zip" element={<AdditionalPages />} />
+
+              <Route path="/convert-csv" element={<AdditionalPages />} />
+              <Route path="/csv-to-json" element={<AdditionalPages />} />
+              <Route path="/json-to-csv" element={<AdditionalPages />} />
+              <Route path="/csv-cleaner" element={<AdditionalPages />} />
+              <Route path="/remove-duplicate-csv-rows" element={<AdditionalPages />} />
+              <Route path="/csv-delimiter-converter" element={<AdditionalPages />} />
+              <Route path="/csv-to-pdf" element={<AdditionalPages />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
