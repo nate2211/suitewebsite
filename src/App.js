@@ -74,7 +74,6 @@ export default function App() {
               <Route path="/compress-mp4" element={<AdditionalPages />} />
               <Route path="/compress-mov" element={<AdditionalPages />} />
               <Route path="/compress-zip" element={<AdditionalPages />} />
-
               <Route path="/convert-csv" element={<AdditionalPages />} />
               <Route path="/csv-to-json" element={<AdditionalPages />} />
               <Route path="/json-to-csv" element={<AdditionalPages />} />
@@ -82,6 +81,19 @@ export default function App() {
               <Route path="/remove-duplicate-csv-rows" element={<AdditionalPages />} />
               <Route path="/csv-delimiter-converter" element={<AdditionalPages />} />
               <Route path="/csv-to-pdf" element={<AdditionalPages />} />
+              <Route path="/pdf-to-jpg" element={<AdditionalPages />} />
+              <Route path="/convert-pdf-to-jpg" element={<AdditionalPages />} />
+              <Route path="/jpg-to-pdf" element={<AdditionalPages />} />
+              <Route path="/convert-jpg-to-pdf" element={<AdditionalPages />} />
+              <Route path="/heic-to-jpg" element={<AdditionalPages />} />
+              <Route path="/convert-heic-to-jpg" element={<AdditionalPages />} />
+              <Route path="/fahrenheit-to-celsius" element={<AdditionalPages />} />
+              <Route path="/celsius-to-fahrenheit" element={<AdditionalPages />} />
+              <Route path="/convert-to-mp3" element={<AdditionalPages />} />
+              <Route path="/mp3-to-wav" element={<AdditionalPages />} />
+              <Route path="/wav-to-mp3" element={<AdditionalPages />} />
+              <Route path="/print-pdf" element={<AdditionalPages />} />
+              <Route path="/print-word" element={<AdditionalPages />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>

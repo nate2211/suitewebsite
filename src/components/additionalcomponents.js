@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import JSZip from "jszip";
+import { heicTo, isHeic } from "heic-to";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
@@ -39,24 +40,17 @@ import SlideshowRoundedIcon from "@mui/icons-material/SlideshowRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
 import BorderColorRoundedIcon from "@mui/icons-material/BorderColorRounded";
 import TransformRoundedIcon from "@mui/icons-material/TransformRounded";
-import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
-import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
-import ArticleRoundedIcon from "@mui/icons-material/ArticleRounded";
-import DragIndicatorRoundedIcon from "@mui/icons-material/DragIndicatorRounded";
-import AspectRatioRoundedIcon from "@mui/icons-material/AspectRatioRounded";
+import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 
-import {
-    AppNavBar,
-    GradientPage,
-    SectionHeader,
-} from "./components";
-
+import { AppNavBar, GradientPage, SectionHeader } from "./components";
 import HelmetHeader from "./HelmetHeader";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const SITE_URL = "https://suiteofficelab.com";
+const FFMPEG_CORE_BASE_URL =
+    "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
 
 const TOOL_PRESETS = {
     "office-tools": {
@@ -68,9 +62,9 @@ const TOOL_PRESETS = {
         icon: <AutoAwesomeRoundedIcon />,
         mode: "index",
         description:
-            "Use focused browser tools to view, convert, compress, clean, export, and sign office files directly from browser-based pages.",
+            "Use focused browser tools to view, convert, compress, clean, print, export, and sign office files directly from browser-based pages.",
         keywords:
-            "browser office tools, view PDF online, view Word document, view PowerPoint, view CSV, PDF to DOCX, DOCX to PDF, convert PDF, convert CSV, compress video, compress MP4, compress MOV, compress ZIP, sign PDF online",
+            "browser office tools, view PDF online, print PDF online, print Word online, convert PDF to JPG, JPG to PDF, HEIC to JPG, MP3 to WAV, WAV to MP3, CSV converter",
     },
 
     "convert-pdf": {
@@ -83,9 +77,9 @@ const TOOL_PRESETS = {
         mode: "convertPdf",
         accept: ".pdf,application/pdf",
         description:
-            "Upload a PDF and convert it to DOCX, TXT, PNG page previews, or a browser-generated PDF copy directly from the frontend.",
+            "Upload a PDF and convert it to DOCX, TXT, PNG page previews, JPG page images, or a browser-generated PDF copy.",
         keywords:
-            "convert PDF online, PDF to DOCX, PDF to Word, PDF to text, PDF to PNG, browser PDF converter, frontend PDF converter",
+            "convert PDF online, PDF to DOCX, PDF to Word, PDF to text, PDF to PNG, PDF to JPG, browser PDF converter",
     },
 
     "convert-word": {
@@ -99,9 +93,9 @@ const TOOL_PRESETS = {
         accept:
             ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         description:
-            "Upload a DOCX file, convert it to PDF, HTML, plain text, or a browser-generated DOCX copy directly from the browser.",
+            "Upload a DOCX file and convert it to PDF, HTML, plain text, or a browser-generated DOCX copy.",
         keywords:
-            "convert Word document online, DOCX to PDF, DOCX to HTML, DOCX to text, browser Word converter, frontend DOCX converter",
+            "convert Word document online, DOCX to PDF, DOCX to HTML, DOCX to text, browser Word converter",
     },
 
     "view-pdf": {
@@ -146,7 +140,7 @@ const TOOL_PRESETS = {
         accept:
             ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation",
         description:
-            "Upload a PPTX file and view extracted slide text, slide numbers, and speaker-note style content in the browser.",
+            "Upload a PPTX file and view extracted slide text, slide numbers, and readable presentation content.",
         keywords:
             "view PowerPoint online, PPTX viewer, browser presentation viewer, view slides online",
     },
@@ -176,9 +170,9 @@ const TOOL_PRESETS = {
         mode: "signDocument",
         accept: ".pdf,application/pdf",
         description:
-            "Upload a PDF, draw a professional signature with mouse, pen, touch, or drawing tablet input, drag it on top of the rendered PDF, resize it, and export a signed document.",
+            "Upload a PDF, draw a signature with mouse, pen, touch, or drawing tablet input, place it on a page, and export a signed PDF.",
         keywords:
-            "sign PDF online, sign document online, draw signature, move signature on PDF, resize signature, mouse signature, pen signature, browser PDF signing",
+            "sign PDF online, sign document online, draw signature, browser PDF signing",
     },
 
     "compress-video": {
@@ -191,9 +185,9 @@ const TOOL_PRESETS = {
         mode: "compressVideo",
         accept: "video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm",
         description:
-            "Upload MP4, MOV, or WEBM videos and create a smaller browser-generated MP4 for sharing, email, LMS upload, or instructor upload.",
+            "Upload MP4, MOV, or WEBM videos and create a smaller browser-generated MP4 for sharing or upload.",
         keywords:
-            "compress video online, reduce video file size, compress MP4, compress MOV, compress webcam video, video compressor for upload",
+            "compress video online, reduce video file size, compress MP4, compress MOV, video compressor",
     },
 
     "compress-mp4": {
@@ -206,9 +200,9 @@ const TOOL_PRESETS = {
         mode: "compressVideo",
         accept: "video/mp4,.mp4",
         description:
-            "Upload an MP4 video and reduce its file size with browser video compression settings for resolution, frame rate, audio bitrate, and video quality.",
+            "Upload an MP4 video and reduce its file size with browser video compression settings.",
         keywords:
-            "compress MP4 online, reduce MP4 file size, MP4 compressor, compress video for upload, smaller MP4 file",
+            "compress MP4 online, reduce MP4 file size, MP4 compressor, smaller MP4 file",
     },
 
     "compress-mov": {
@@ -221,9 +215,9 @@ const TOOL_PRESETS = {
         mode: "compressVideo",
         accept: "video/quicktime,.mov",
         description:
-            "Upload a MOV file from iPhone, Mac, QuickTime, or webcam recording workflows and create a smaller MP4 copy for instructor upload.",
+            "Upload a MOV file from iPhone, Mac, QuickTime, or webcam workflows and create a smaller MP4 copy.",
         keywords:
-            "compress MOV online, reduce MOV file size, QuickTime video compressor, iPhone MOV compressor, MOV to MP4 compressor",
+            "compress MOV online, reduce MOV file size, QuickTime video compressor, iPhone MOV compressor",
     },
 
     "compress-zip": {
@@ -236,9 +230,9 @@ const TOOL_PRESETS = {
         mode: "compressZip",
         accept: ".zip,application/zip,application/x-zip-compressed",
         description:
-            "Upload a ZIP file, remove common junk files, rebuild it with maximum DEFLATE compression, and export an optimized ZIP copy.",
+            "Upload a ZIP file, remove common junk files, rebuild it with DEFLATE compression, and export an optimized ZIP copy.",
         keywords:
-            "compress ZIP online, reduce ZIP file size, optimize ZIP file, clean ZIP file, browser ZIP compressor",
+            "compress ZIP online, reduce ZIP file size, optimize ZIP file, clean ZIP file",
     },
 
     "convert-csv": {
@@ -249,7 +243,8 @@ const TOOL_PRESETS = {
         eyebrow: "CSV Converter",
         icon: <TableChartRoundedIcon />,
         mode: "convertCsv",
-        accept: ".csv,text/csv,.tsv,text/tab-separated-values,.json,application/json,text/plain",
+        accept:
+            ".csv,text/csv,.tsv,text/tab-separated-values,.json,application/json,text/plain",
         description:
             "Upload CSV, TSV, or JSON data and convert it to JSON, cleaned CSV, PDF table output, or delimiter-adjusted spreadsheet data.",
         keywords:
@@ -283,7 +278,7 @@ const TOOL_PRESETS = {
         description:
             "Upload JSON arrays or objects and convert them into CSV rows that can be opened in spreadsheet software.",
         keywords:
-            "JSON to CSV, convert JSON to CSV online, JSON spreadsheet converter, JSON CSV export",
+            "JSON to CSV, convert JSON to CSV online, JSON spreadsheet converter",
     },
 
     "csv-cleaner": {
@@ -298,7 +293,7 @@ const TOOL_PRESETS = {
         description:
             "Upload a CSV file, trim extra spaces, remove blank rows, normalize row widths, and export a cleaned CSV copy.",
         keywords:
-            "CSV cleaner online, clean CSV file, remove blank CSV rows, trim CSV spaces, fix CSV rows",
+            "CSV cleaner online, clean CSV file, remove blank CSV rows, trim CSV spaces",
     },
 
     "remove-duplicate-csv-rows": {
@@ -313,7 +308,7 @@ const TOOL_PRESETS = {
         description:
             "Upload a CSV file, detect duplicate rows, remove repeated entries, and export a deduplicated CSV file.",
         keywords:
-            "remove duplicate CSV rows, deduplicate CSV online, CSV duplicate remover, remove repeated spreadsheet rows",
+            "remove duplicate CSV rows, deduplicate CSV online, CSV duplicate remover",
     },
 
     "csv-delimiter-converter": {
@@ -328,7 +323,7 @@ const TOOL_PRESETS = {
         description:
             "Upload CSV or TSV files and export the same rows using comma, semicolon, tab, or pipe delimiters.",
         keywords:
-            "CSV delimiter converter, convert CSV to TSV, comma to semicolon CSV, tab delimited converter",
+            "CSV delimiter converter, convert CSV to TSV, comma to semicolon CSV",
     },
 
     "csv-to-pdf": {
@@ -343,16 +338,177 @@ const TOOL_PRESETS = {
         description:
             "Upload a CSV file and export a browser-generated PDF copy with readable spreadsheet-style row data.",
         keywords:
-            "CSV to PDF, convert CSV to PDF online, spreadsheet to PDF, CSV table PDF converter",
+            "CSV to PDF, convert CSV to PDF online, spreadsheet to PDF",
+    },
+
+    "pdf-to-jpg": {
+        slug: "pdf-to-jpg",
+        title: "Convert PDF to JPG Free",
+        h1: "Convert PDF to JPG free",
+        shortTitle: "PDF to JPG",
+        eyebrow: "PDF Image Converter",
+        icon: <PictureAsPdfRoundedIcon />,
+        mode: "pdfToJpg",
+        accept: ".pdf,application/pdf",
+        description:
+            "Upload a PDF and export the current page or every page as high-quality JPG images directly in your browser.",
+        keywords:
+            "convert PDF to JPG free, PDF to JPG online, PDF page to image, PDF image converter",
+    },
+
+    "jpg-to-pdf": {
+        slug: "jpg-to-pdf",
+        title: "Convert JPG to PDF Free",
+        h1: "Convert JPG to PDF free",
+        shortTitle: "JPG to PDF",
+        eyebrow: "Image PDF Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "jpgToPdf",
+        accept: ".jpg,.jpeg,.png,image/jpeg,image/png",
+        description:
+            "Upload a JPG, JPEG, or PNG image and convert it into a browser-generated PDF file for free.",
+        keywords:
+            "convert JPG to PDF free, JPG to PDF online, JPEG to PDF, image to PDF converter",
+    },
+
+    "heic-to-jpg": {
+        slug: "heic-to-jpg",
+        title: "Convert HEIC to JPG Free",
+        h1: "Convert HEIC to JPG free",
+        shortTitle: "HEIC to JPG",
+        eyebrow: "Image Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "heicToJpg",
+        accept:
+            ".heic,.HEIC,.heif,.HEIF,image/heic,image/heif,image/heic-sequence,image/heif-sequence",
+        description:
+            "Upload an iPhone HEIC or HEIF image and convert it to a standard JPG image directly in your browser.",
+        keywords:
+            "convert HEIC to JPG free, HEIC to JPG online, iPhone photo converter, HEIF to JPG",
+    },
+
+    "fahrenheit-to-celsius": {
+        slug: "fahrenheit-to-celsius",
+        title: "Convert Fahrenheit to Celsius",
+        h1: "Convert Fahrenheit to Celsius",
+        shortTitle: "Fahrenheit to Celsius",
+        eyebrow: "Temperature Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "temperature",
+        temperatureDirection: "fToC",
+        accept: "",
+        description:
+            "Convert Fahrenheit temperatures to Celsius instantly with a simple free browser calculator.",
+        keywords:
+            "convert Fahrenheit to Celsius, F to C calculator, temperature converter",
+    },
+
+    "celsius-to-fahrenheit": {
+        slug: "celsius-to-fahrenheit",
+        title: "Convert Celsius to Fahrenheit",
+        h1: "Convert Celsius to Fahrenheit",
+        shortTitle: "Celsius to Fahrenheit",
+        eyebrow: "Temperature Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "temperature",
+        temperatureDirection: "cToF",
+        accept: "",
+        description:
+            "Convert Celsius temperatures to Fahrenheit instantly with a simple free browser calculator.",
+        keywords:
+            "convert Celsius to Fahrenheit, C to F calculator, temperature converter",
+    },
+
+    "convert-to-mp3": {
+        slug: "convert-to-mp3",
+        title: "Convert to MP3 Free",
+        h1: "Convert audio or video to MP3 free",
+        shortTitle: "Convert to MP3",
+        eyebrow: "Audio Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "audioToMp3",
+        accept: "audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.mp4,.mov,.webm",
+        description:
+            "Upload audio or video and export the sound as an MP3 file directly in your browser.",
+        keywords:
+            "convert to MP3 free, audio to MP3, video to MP3, browser MP3 converter",
+    },
+
+    "mp3-to-wav": {
+        slug: "mp3-to-wav",
+        title: "Convert MP3 to WAV Free",
+        h1: "Convert MP3 to WAV free",
+        shortTitle: "MP3 to WAV",
+        eyebrow: "Audio Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "mp3ToWav",
+        accept: ".mp3,audio/mpeg,audio/mp3",
+        description:
+            "Upload an MP3 file and convert it to a WAV file directly in your browser.",
+        keywords:
+            "MP3 to WAV free, convert MP3 to WAV online, browser audio converter",
+    },
+
+    "wav-to-mp3": {
+        slug: "wav-to-mp3",
+        title: "Convert WAV to MP3 Free",
+        h1: "Convert WAV to MP3 free",
+        shortTitle: "WAV to MP3",
+        eyebrow: "Audio Converter",
+        icon: <TransformRoundedIcon />,
+        mode: "wavToMp3",
+        accept: ".wav,audio/wav,audio/x-wav",
+        description:
+            "Upload a WAV file and convert it to a smaller MP3 file directly in your browser.",
+        keywords:
+            "WAV to MP3 free, convert WAV to MP3 online, browser audio converter",
+    },
+
+    "print-pdf": {
+        slug: "print-pdf",
+        title: "Print PDF Online",
+        h1: "Print PDF online",
+        shortTitle: "Print PDF",
+        eyebrow: "PDF Printer",
+        icon: <PictureAsPdfRoundedIcon />,
+        mode: "printPdf",
+        accept: ".pdf,application/pdf",
+        description:
+            "Upload a PDF, preview the pages, and open the browser print dialog for the document.",
+        keywords:
+            "print PDF online, free PDF printer, browser PDF print, print PDF document",
+    },
+
+    "print-word": {
+        slug: "print-word",
+        title: "Print Word Document Online",
+        h1: "Print Word documents online",
+        shortTitle: "Print Word",
+        eyebrow: "Word Printer",
+        icon: <DescriptionRoundedIcon />,
+        mode: "printWord",
+        accept:
+            ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        description:
+            "Upload a DOCX file, preview the document as browser-readable HTML, and print it from the browser.",
+        keywords:
+            "print Word document online, print DOCX online, browser Word printer",
     },
 };
 
+const SLUG_ALIASES = {
+    "convert-pdf-to-jpg": "pdf-to-jpg",
+    "convert-jpg-to-pdf": "jpg-to-pdf",
+    "convert-heic-to-jpg": "heic-to-jpg",
+};
+
 const DEFAULT_SLUG = "office-tools";
-const FFMPEG_CORE_BASE_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
 
 function getSlug(pathname) {
     const clean = pathname.replace(/^\/+/, "").replace(/\/+$/, "");
-    return TOOL_PRESETS[clean] ? clean : DEFAULT_SLUG;
+    const normalized = SLUG_ALIASES[clean] || clean;
+
+    return TOOL_PRESETS[normalized] ? normalized : DEFAULT_SLUG;
 }
 
 function clamp(value, min, max) {
@@ -403,12 +559,6 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
-function stripHtml(html) {
-    const element = document.createElement("div");
-    element.innerHTML = html;
-    return element.innerText || element.textContent || "";
-}
-
 function xmlEscape(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -416,6 +566,12 @@ function xmlEscape(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&apos;");
+}
+
+function stripHtml(html) {
+    const element = document.createElement("div");
+    element.innerHTML = html;
+    return element.innerText || element.textContent || "";
 }
 
 function parseDelimited(text, delimiter = ",") {
@@ -680,14 +836,14 @@ function docxTableToHtml(table) {
 
     return `
 <table>
-    <tbody>
-        ${rows
+<tbody>
+${rows
         .map((row) => {
             const cells = getDirectChildrenByLocalName(row, "tc");
 
             return `
 <tr>
-    ${cells
+${cells
                 .map((cell) => {
                     const paragraphs = getDirectChildrenByLocalName(cell, "p");
                     const html = paragraphs.map((paragraph) => docxParagraphToHtml(paragraph)).join("");
@@ -697,7 +853,7 @@ function docxTableToHtml(table) {
 </tr>`;
         })
         .join("")}
-    </tbody>
+</tbody>
 </table>`;
 }
 
@@ -932,54 +1088,90 @@ async function rowsToPdfBytes({ title, rows }) {
     return pdf.save();
 }
 
-async function pdfExtractedTextToDocxBytes({ title, pages }) {
+function buildDocxDocumentXml({ title, paragraphs }) {
+    const bodyParagraphs = [
+        title || "Converted Document",
+        ...(paragraphs && paragraphs.length ? paragraphs : ["No text was available to convert."]),
+    ]
+        .map((paragraph, index) => {
+            const isTitle = index === 0;
+
+            return `<w:p>
+<w:pPr>
+${isTitle ? '<w:pStyle w:val="Title"/>' : ""}
+<w:spacing w:after="180"/>
+</w:pPr>
+<w:r>
+<w:rPr>
+${isTitle ? "<w:b/>" : ""}
+<w:sz w:val="${isTitle ? "36" : "24"}"/>
+</w:rPr>
+<w:t xml:space="preserve">${xmlEscape(paragraph)}</w:t>
+</w:r>
+</w:p>`;
+        })
+        .join("\n");
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document
+xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+xmlns:v="urn:schemas-microsoft-com:vml"
+xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
+xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+xmlns:w10="urn:schemas-microsoft-com:office:word"
+xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
+xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"
+xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+mc:Ignorable="w14 wp14">
+<w:body>
+${bodyParagraphs}
+<w:sectPr>
+<w:pgSz w:w="12240" w:h="15840"/>
+<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+</w:sectPr>
+</w:body>
+</w:document>`;
+}
+
+async function textPagesToDocxBytes({ title, pages }) {
     const zip = new JSZip();
 
-    const documentXml = buildDocxDocumentXml({
-        title,
-        paragraphs: pages.flatMap((page) => [
-            `Page ${page.pageNumber}`,
-            page.text || "No selectable text found on this page.",
-        ]),
-    });
+    const paragraphs = pages.flatMap((page) => [
+        `Page ${page.pageNumber}`,
+        page.text || "No selectable text found on this page.",
+    ]);
 
-    zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip.file(
+        "[Content_Types].xml",
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-    <Default Extension="xml" ContentType="application/xml"/>
-    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
-    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
-</Types>`);
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+    );
 
-    zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip.folder("_rels").file(
+        ".rels",
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-    <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-</Relationships>`);
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+    );
 
-    zip.folder("word").file("document.xml", documentXml);
-    zip.folder("word").folder("_rels").file("document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`);
-
-    zip.folder("docProps").file("core.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<cp:coreProperties
-    xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
-    xmlns:dc="http://purl.org/dc/elements/1.1/"
-    xmlns:dcterms="http://purl.org/dc/terms/"
-    xmlns:dcmitype="http://purl.org/dc/dcmitype/"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <dc:title>${xmlEscape(title || "Converted PDF")}</dc:title>
-    <dc:creator>SuiteOfficeLab</dc:creator>
-    <cp:lastModifiedBy>SuiteOfficeLab</cp:lastModifiedBy>
-</cp:coreProperties>`);
-
-    zip.folder("docProps").file("app.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
-    xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
-    <Application>SuiteOfficeLab</Application>
-</Properties>`);
+    zip.folder("word").file("document.xml", buildDocxDocumentXml({ title, paragraphs }));
+    zip.folder("word").folder("_rels").file(
+        "document.xml.rels",
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
+    );
 
     return zip.generateAsync({
         type: "uint8array",
@@ -996,78 +1188,35 @@ async function htmlTextToDocxBytes({ title, html }) {
 
     const zip = new JSZip();
 
-    zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip.file(
+        "[Content_Types].xml",
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-    <Default Extension="xml" ContentType="application/xml"/>
-    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`);
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+    );
 
-    zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip.folder("_rels").file(
+        ".rels",
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`);
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+    );
 
     zip.folder("word").file("document.xml", buildDocxDocumentXml({ title, paragraphs }));
-    zip.folder("word").folder("_rels").file("document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`);
+    zip.folder("word").folder("_rels").file(
+        "document.xml.rels",
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
+    );
 
     return zip.generateAsync({
         type: "uint8array",
         compression: "DEFLATE",
     });
-}
-
-function buildDocxDocumentXml({ title, paragraphs }) {
-    const bodyParagraphs = [
-        title || "Converted Document",
-        ...(paragraphs && paragraphs.length ? paragraphs : ["No text was available to convert."]),
-    ]
-        .map((paragraph, index) => {
-            const isTitle = index === 0;
-
-            return `<w:p>
-    <w:pPr>
-        ${isTitle ? '<w:pStyle w:val="Title"/>' : ""}
-        <w:spacing w:after="180"/>
-    </w:pPr>
-    <w:r>
-        <w:rPr>
-            ${isTitle ? "<w:b/>" : ""}
-            <w:sz w:val="${isTitle ? "36" : "24"}"/>
-        </w:rPr>
-        <w:t xml:space="preserve">${xmlEscape(paragraph)}</w:t>
-    </w:r>
-</w:p>`;
-        })
-        .join("\n");
-
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document
-    xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:o="urn:schemas-microsoft-com:office:office"
-    xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-    xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
-    xmlns:v="urn:schemas-microsoft-com:vml"
-    xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
-    xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-    xmlns:w10="urn:schemas-microsoft-com:office:word"
-    xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
-    xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
-    xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
-    xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"
-    xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
-    mc:Ignorable="w14 wp14">
-    <w:body>
-        ${bodyParagraphs}
-        <w:sectPr>
-            <w:pgSz w:w="12240" w:h="15840"/>
-            <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
-        </w:sectPr>
-    </w:body>
-</w:document>`;
 }
 
 function buildHtmlDocument({ title, body }) {
@@ -1090,16 +1239,80 @@ p{line-height:1.7;}
 </html>`;
 }
 
-function buildJsonLd(preset) {
-    const url = `${SITE_URL}/${preset.slug}`;
+function openPrintableHtml({ title, body }) {
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
 
+    if (!printWindow) return false;
+
+    printWindow.document.open();
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>${escapeHtml(title || "Print Document")}</title>
+<style>
+body{font-family:Arial,sans-serif;background:white;color:#111827;padding:38px;}
+main{max-width:920px;margin:0 auto;}
+table{border-collapse:collapse;width:100%;margin:18px 0;}
+td,th{border:1px solid #9ca3af;padding:8px;}
+p{line-height:1.65;}
+@media print{body{padding:0;}main{max-width:none;}}
+</style>
+</head>
+<body>
+<main>${body}</main>
+<script>
+window.onload = function () {
+window.focus();
+window.print();
+};
+</script>
+</body>
+</html>`);
+    printWindow.document.close();
+
+    return true;
+}
+
+function openPrintableBlob(blob, title = "Print Document") {
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+
+    if (!printWindow) {
+        URL.revokeObjectURL(url);
+        return false;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>${escapeHtml(title)}</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;}
+iframe{border:0;width:100vw;height:100vh;}
+</style>
+</head>
+<body>
+<iframe src="${url}" onload="this.contentWindow.focus();this.contentWindow.print();"></iframe>
+</body>
+</html>`);
+    printWindow.document.close();
+
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+    return true;
+}
+
+function buildJsonLd(preset) {
     return {
         "@context": "https://schema.org",
         "@type": "WebApplication",
         name: preset.title,
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web Browser",
-        url,
+        url: `${SITE_URL}/${preset.slug}`,
         description: preset.description,
         offers: {
             "@type": "Offer",
@@ -1128,6 +1341,57 @@ function getVideoInputName(fileName) {
     return `input${extension}`;
 }
 
+function getMediaInputName(fileName) {
+    const clean = String(fileName || "input.media").replace(/[^\w.-]/g, "_");
+    const extension = clean.match(/\.[^.]+$/)?.[0] || ".media";
+    return `input${extension}`;
+}
+
+function canvasToBlob(canvas, type = "image/jpeg", quality = 0.92) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            (blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error("Could not create image blob."));
+            },
+            type,
+            quality
+        );
+    });
+}
+
+async function normalizeJpegBlob(value) {
+    if (!value) {
+        throw new Error("The HEIC converter did not return an output file.");
+    }
+
+    if (value instanceof Blob) {
+        return value.type === "image/jpeg"
+            ? value
+            : new Blob([await value.arrayBuffer()], { type: "image/jpeg" });
+    }
+
+    if (value instanceof ArrayBuffer) {
+        return new Blob([value], { type: "image/jpeg" });
+    }
+
+    if (value?.buffer instanceof ArrayBuffer) {
+        return new Blob([value.buffer], { type: "image/jpeg" });
+    }
+
+    throw new Error("The HEIC converter returned an unsupported output type.");
+}
+
+function EmptyState({ text }) {
+    return (
+        <Paper sx={emptyStateSx}>
+            <Typography sx={{ color: "rgba(255,255,255,.7)", lineHeight: 1.7 }}>
+                {text}
+            </Typography>
+        </Paper>
+    );
+}
+
 export function AdditionalOfficeToolPage() {
     const location = useLocation();
     const slug = getSlug(location.pathname);
@@ -1138,6 +1402,10 @@ export function AdditionalOfficeToolPage() {
     }
 
     return <FocusedOfficeTool preset={preset} />;
+}
+
+export default function AdditionalPages() {
+    return <AdditionalOfficeToolPage />;
 }
 
 function OfficeToolsIndex({ preset }) {
@@ -1172,24 +1440,21 @@ function OfficeToolsIndex({ preset }) {
                             fontWeight: 950,
                         }}
                     >
-                        View, convert, compress, clean, and sign files from focused browser pages.
+                        View, convert, compress, clean, print, and sign files from focused browser pages.
                     </Typography>
 
                     <Typography sx={{ color: "rgba(255,255,255,.7)", fontSize: 18, lineHeight: 1.75 }}>
-                        These pages are made for direct SEO URLs. Convert PDF to DOCX, convert DOCX
-                        to PDF, export PDF text, view documents, clean CSV files, convert CSV to JSON,
-                        compress MP4 or MOV files for upload, optimize ZIP files, and sign PDF documents.
+                        These pages are built for direct SEO URLs. Convert PDF to JPG, JPG to PDF,
+                        HEIC to JPG, Fahrenheit to Celsius, Celsius to Fahrenheit, audio to MP3,
+                        MP3 to WAV, WAV to MP3, print PDF, print Word, clean CSV files, compress
+                        videos, optimize ZIP files, and sign PDF documents.
                     </Typography>
                 </Stack>
 
                 <Grid container spacing={2.5}>
                     {tools.map((tool) => (
                         <Grid item xs={12} sm={6} lg={3} key={tool.slug}>
-                            <Card
-                                component={RouterLink}
-                                to={`/${tool.slug}`}
-                                sx={toolCardSx}
-                            >
+                            <Card component={RouterLink} to={`/${tool.slug}`} sx={toolCardSx}>
                                 <CardContent sx={{ p: 2.75 }}>
                                     <Stack spacing={2}>
                                         <Box sx={iconBoxSx}>{tool.icon}</Box>
@@ -1223,7 +1488,6 @@ function FocusedOfficeTool({ preset }) {
     const canvasRef = useRef(null);
     const signatureCanvasRef = useRef(null);
     const drawingRef = useRef(false);
-    const dragRef = useRef(null);
     const ffmpegRef = useRef(null);
 
     const [file, setFile] = useState(null);
@@ -1236,7 +1500,6 @@ function FocusedOfficeTool({ preset }) {
     const [pageNumber, setPageNumber] = useState(1);
     const [pageCount, setPageCount] = useState(0);
     const [zoom, setZoom] = useState(1.35);
-    const [canvasSize, setCanvasSize] = useState({ width: 1, height: 1 });
 
     const [htmlPreview, setHtmlPreview] = useState("");
     const [textPreview, setTextPreview] = useState("");
@@ -1253,7 +1516,6 @@ function FocusedOfficeTool({ preset }) {
     const [ffmpegProgress, setFfmpegProgress] = useState(0);
     const [ffmpegLog, setFfmpegLog] = useState("");
     const [videoSettings, setVideoSettings] = useState({
-        height: 720,
         crf: 28,
         fps: 30,
         videoBitrate: 1800,
@@ -1262,7 +1524,7 @@ function FocusedOfficeTool({ preset }) {
 
     const [signatureDataUrl, setSignatureDataUrl] = useState("");
     const [signature, setSignature] = useState({
-        x: 120,
+        x: 72,
         y: 120,
         width: 180,
         page: 1,
@@ -1270,12 +1532,30 @@ function FocusedOfficeTool({ preset }) {
         lineWidth: 3,
     });
 
+    const [imageUrl, setImageUrl] = useState("");
+    const [convertedImageUrl, setConvertedImageUrl] = useState("");
+    const [convertedImageBlob, setConvertedImageBlob] = useState(null);
+
+    const [mediaUrl, setMediaUrl] = useState("");
+    const [convertedMediaUrl, setConvertedMediaUrl] = useState("");
+    const [convertedMediaBlob, setConvertedMediaBlob] = useState(null);
+    const [convertedMediaName, setConvertedMediaName] = useState("");
+
+    const [temperatureInput, setTemperatureInput] = useState("");
+    const [temperatureOutput, setTemperatureOutput] = useState("");
+
     const isPdfMode =
         preset.mode === "viewPdf" ||
         preset.mode === "convertPdf" ||
-        preset.mode === "signDocument";
+        preset.mode === "signDocument" ||
+        preset.mode === "pdfToJpg" ||
+        preset.mode === "printPdf";
 
-    const isWordMode = preset.mode === "viewWord" || preset.mode === "convertWord";
+    const isWordMode =
+        preset.mode === "viewWord" ||
+        preset.mode === "convertWord" ||
+        preset.mode === "printWord";
+
     const isCsvMode =
         preset.mode === "viewCsv" ||
         preset.mode === "convertCsv" ||
@@ -1288,24 +1568,18 @@ function FocusedOfficeTool({ preset }) {
 
     const isVideoMode = preset.mode === "compressVideo";
     const isZipMode = preset.mode === "compressZip";
+    const isImageMode = preset.mode === "jpgToPdf" || preset.mode === "heicToJpg";
+    const isAudioMode =
+        preset.mode === "audioToMp3" ||
+        preset.mode === "mp3ToWav" ||
+        preset.mode === "wavToMp3";
+    const isTemperatureMode = preset.mode === "temperature";
 
     const pageOptions = useMemo(() => {
         return Array.from({ length: pageCount || 1 }, (_, index) => index + 1);
     }, [pageCount]);
 
     const csvStats = useMemo(() => getRowsStats(csvRows), [csvRows]);
-
-    const signatureDisplay = useMemo(() => {
-        const width = Math.max(20, signature.width * zoom);
-        const height = width * (260 / 900);
-
-        return {
-            left: signature.x * zoom,
-            top: signature.y * zoom,
-            width,
-            height,
-        };
-    }, [signature, zoom]);
 
     useEffect(() => {
         if (pdfDoc && isPdfMode) {
@@ -1316,15 +1590,16 @@ function FocusedOfficeTool({ preset }) {
 
     useEffect(() => {
         return () => {
-            removeSignatureDragListeners();
-
-            if (videoUrl) {
-                URL.revokeObjectURL(videoUrl);
-            }
-
-            if (compressedVideoUrl) {
-                URL.revokeObjectURL(compressedVideoUrl);
-            }
+            [
+                videoUrl,
+                compressedVideoUrl,
+                imageUrl,
+                convertedImageUrl,
+                mediaUrl,
+                convertedMediaUrl,
+            ].forEach((url) => {
+                if (url) URL.revokeObjectURL(url);
+            });
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -1344,24 +1619,35 @@ function FocusedOfficeTool({ preset }) {
         setPdfExtractedPages([]);
         setPageNumber(1);
         setPageCount(0);
-        setCanvasSize({ width: 1, height: 1 });
 
         setZipStats(null);
         setOptimizedZipBlob(null);
 
-        if (videoUrl) {
-            URL.revokeObjectURL(videoUrl);
-        }
-
-        if (compressedVideoUrl) {
-            URL.revokeObjectURL(compressedVideoUrl);
-        }
+        [
+            videoUrl,
+            compressedVideoUrl,
+            imageUrl,
+            convertedImageUrl,
+            mediaUrl,
+            convertedMediaUrl,
+        ].forEach((url) => {
+            if (url) URL.revokeObjectURL(url);
+        });
 
         setVideoUrl("");
         setCompressedVideoUrl("");
         setCompressedVideoBlob(null);
         setFfmpegProgress(0);
         setFfmpegLog("");
+
+        setImageUrl("");
+        setConvertedImageUrl("");
+        setConvertedImageBlob(null);
+
+        setMediaUrl("");
+        setConvertedMediaUrl("");
+        setConvertedMediaBlob(null);
+        setConvertedMediaName("");
     }
 
     async function handleUpload(event) {
@@ -1392,9 +1678,7 @@ function FocusedOfficeTool({ preset }) {
                             .map((page) => `Page ${page.pageNumber}\n${page.text}`)
                             .join("\n\n")
                     );
-                    setStatus(
-                        `PDF loaded with ${loadedPdf.numPages} page(s). Text is ready for DOCX/TXT export.`
-                    );
+                    setStatus(`PDF loaded with ${loadedPdf.numPages} page(s). Text is ready for export.`);
                 } else {
                     setStatus(`PDF loaded with ${loadedPdf.numPages} page(s).`);
                 }
@@ -1408,9 +1692,7 @@ function FocusedOfficeTool({ preset }) {
 
                 setHtmlPreview(html);
                 setTextPreview(text);
-                setStatus(
-                    "DOCX loaded. You can export it as PDF, HTML, TXT, or a simplified DOCX copy."
-                );
+                setStatus("DOCX loaded. You can preview, convert, or print it.");
                 return;
             }
 
@@ -1464,6 +1746,20 @@ function FocusedOfficeTool({ preset }) {
                 setStatus(
                     `${nextFile.name} loaded at ${formatBytes(nextFile.size)}. Choose compression settings, then export compressed MP4.`
                 );
+                return;
+            }
+
+            if (isImageMode) {
+                const url = URL.createObjectURL(nextFile);
+                setImageUrl(url);
+                setStatus(`${nextFile.name} loaded. Ready to convert.`);
+                return;
+            }
+
+            if (isAudioMode) {
+                const url = URL.createObjectURL(nextFile);
+                setMediaUrl(url);
+                setStatus(`${nextFile.name} loaded at ${formatBytes(nextFile.size)}. Ready to convert.`);
             }
         } catch (error) {
             console.error(error);
@@ -1499,179 +1795,9 @@ function FocusedOfficeTool({ preset }) {
 
         ffmpegRef.current = ffmpeg;
         setFfmpegLoaded(true);
-        setStatus("FFmpeg loaded. Ready to compress video.");
+        setStatus("FFmpeg loaded. Ready.");
 
         return ffmpeg;
-    }
-
-    async function compressVideoWithFfmpeg() {
-        if (!file) {
-            setStatus("Upload a video first.");
-            return;
-        }
-
-        try {
-            const ffmpeg = await ensureFfmpegLoaded();
-            const inputName = getVideoInputName(file.name);
-            const outputName = `${baseName(file.name, "compressed-video")}-compressed.mp4`;
-
-            setStatus("Writing video into FFmpeg memory.");
-            setFfmpegProgress(1);
-
-            try {
-                await ffmpeg.deleteFile(inputName);
-            } catch {
-                // ignore missing file
-            }
-
-            try {
-                await ffmpeg.deleteFile(outputName);
-            } catch {
-                // ignore missing file
-            }
-
-            await ffmpeg.writeFile(inputName, await fetchFile(file));
-
-            setStatus("Compressing video to MP4. Large videos may take a while in-browser.");
-
-            const vf = `scale='min(1280,iw)':-2`;
-
-            await ffmpeg.exec([
-                "-i",
-                inputName,
-                "-vf",
-                vf,
-                "-r",
-                String(videoSettings.fps),
-                "-c:v",
-                "libx264",
-                "-preset",
-                "veryfast",
-                "-crf",
-                String(videoSettings.crf),
-                "-b:v",
-                `${videoSettings.videoBitrate}k`,
-                "-maxrate",
-                `${videoSettings.videoBitrate}k`,
-                "-bufsize",
-                `${videoSettings.videoBitrate * 2}k`,
-                "-c:a",
-                "aac",
-                "-b:a",
-                `${videoSettings.audioBitrate}k`,
-                "-movflags",
-                "+faststart",
-                outputName,
-            ]);
-
-            const data = await ffmpeg.readFile(outputName);
-            const blob = new Blob([data.buffer], { type: "video/mp4" });
-            const url = URL.createObjectURL(blob);
-
-            if (compressedVideoUrl) {
-                URL.revokeObjectURL(compressedVideoUrl);
-            }
-
-            setCompressedVideoBlob(blob);
-            setCompressedVideoUrl(url);
-
-            const original = file.size;
-            const next = blob.size;
-            const saved = original > 0 ? Math.max(0, 100 - (next / original) * 100) : 0;
-
-            setStatus(
-                `Compressed MP4 ready. Original: ${formatBytes(original)}. New: ${formatBytes(next)}. Estimated reduction: ${saved.toFixed(1)}%.`
-            );
-            setFfmpegProgress(100);
-
-            try {
-                await ffmpeg.deleteFile(inputName);
-                await ffmpeg.deleteFile(outputName);
-            } catch {
-                // cleanup is best effort
-            }
-        } catch (error) {
-            console.error(error);
-            setStatus(
-                "Video compression failed. Try a shorter video, lower resolution, or lower bitrate. Very large videos can exceed browser memory."
-            );
-        }
-    }
-
-    function downloadCompressedVideo() {
-        if (!compressedVideoBlob) {
-            setStatus("Compress the video first.");
-            return;
-        }
-
-        downloadBlob(compressedVideoBlob, `${baseName(fileName, "video")}-compressed.mp4`);
-    }
-
-    async function optimizeZipFile() {
-        if (!file) {
-            setStatus("Upload a ZIP first.");
-            return;
-        }
-
-        try {
-            setStatus("Reading ZIP and rebuilding with maximum compression.");
-
-            const originalZip = await JSZip.loadAsync(await file.arrayBuffer());
-            const outputZip = new JSZip();
-
-            let copiedCount = 0;
-            let removedJunk = 0;
-
-            for (const entry of Object.values(originalZip.files)) {
-                if (entry.dir) continue;
-
-                if (isZipJunkFile(entry.name)) {
-                    removedJunk += 1;
-                    continue;
-                }
-
-                const bytes = await entry.async("uint8array");
-                outputZip.file(entry.name, bytes, {
-                    binary: true,
-                    compression: "DEFLATE",
-                    compressionOptions: {
-                        level: 9,
-                    },
-                });
-
-                copiedCount += 1;
-            }
-
-            const output = await outputZip.generateAsync({
-                type: "blob",
-                compression: "DEFLATE",
-                compressionOptions: {
-                    level: 9,
-                },
-            });
-
-            setOptimizedZipBlob(output);
-
-            const original = file.size;
-            const next = output.size;
-            const saved = original > 0 ? Math.max(0, 100 - (next / original) * 100) : 0;
-
-            setStatus(
-                `Optimized ZIP ready. Kept ${copiedCount} file(s), removed ${removedJunk} junk file(s). Original: ${formatBytes(original)}. New: ${formatBytes(next)}. Reduction: ${saved.toFixed(1)}%.`
-            );
-        } catch (error) {
-            console.error(error);
-            setStatus("Could not optimize this ZIP file. It may be encrypted, damaged, or too large for browser memory.");
-        }
-    }
-
-    function downloadOptimizedZip() {
-        if (!optimizedZipBlob) {
-            setStatus("Optimize the ZIP first.");
-            return;
-        }
-
-        downloadBlob(optimizedZipBlob, `${baseName(fileName, "optimized")}-optimized.zip`);
     }
 
     async function renderActivePdfPage() {
@@ -1688,11 +1814,6 @@ function FocusedOfficeTool({ preset }) {
 
         ctx.clearRect(0, 0, target.width, target.height);
         ctx.drawImage(canvas, 0, 0);
-
-        setCanvasSize({
-            width: canvas.width,
-            height: canvas.height,
-        });
     }
 
     async function exportPdfText() {
@@ -1703,9 +1824,8 @@ function FocusedOfficeTool({ preset }) {
 
         const pages = pdfExtractedPages.length ? pdfExtractedPages : await extractPdfText(pdfDoc);
         const text = pages.map((page) => `Page ${page.pageNumber}\n${page.text}`).join("\n\n");
-        const name = baseName(fileName, "converted-pdf");
 
-        downloadText(`${name}.txt`, text);
+        downloadText(`${baseName(fileName, "converted-pdf")}.txt`, text);
         setStatus("PDF text exported.");
     }
 
@@ -1718,7 +1838,7 @@ function FocusedOfficeTool({ preset }) {
         const pages = pdfExtractedPages.length ? pdfExtractedPages : await extractPdfText(pdfDoc);
         const name = baseName(fileName, "converted-pdf");
 
-        const docxBytes = await pdfExtractedTextToDocxBytes({
+        const docxBytes = await textPagesToDocxBytes({
             title: `${name} converted from PDF`,
             pages,
         });
@@ -1756,10 +1876,72 @@ function FocusedOfficeTool({ preset }) {
 
         const pdf = await PDFDocument.load(pdfBytes);
         const output = await pdf.save();
-        const name = baseName(fileName, "document");
 
-        downloadBytes(`${name}-copy.pdf`, output, "application/pdf");
+        downloadBytes(`${baseName(fileName, "document")}-copy.pdf`, output, "application/pdf");
         setStatus("Browser-generated PDF copy exported.");
+    }
+
+    async function exportCurrentPdfPageJpg() {
+        if (!pdfDoc) {
+            setStatus("Upload a PDF first.");
+            return;
+        }
+
+        try {
+            const canvas = await renderPdfPageToCanvas(pdfDoc, pageNumber, 2);
+            const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+
+            downloadBlob(blob, `${baseName(fileName, "pdf")}-page-${pageNumber}.jpg`);
+            setStatus(`Page ${pageNumber} exported as JPG.`);
+        } catch (error) {
+            console.error(error);
+            setStatus("Could not export this PDF page as JPG.");
+        }
+    }
+
+    async function exportAllPdfPagesJpgZip() {
+        if (!pdfDoc) {
+            setStatus("Upload a PDF first.");
+            return;
+        }
+
+        try {
+            setStatus("Rendering all PDF pages as JPG images.");
+
+            const zip = new JSZip();
+            const name = baseName(fileName, "pdf");
+
+            for (let page = 1; page <= pdfDoc.numPages; page += 1) {
+                const canvas = await renderPdfPageToCanvas(pdfDoc, page, 2);
+                const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+                const bytes = await blob.arrayBuffer();
+
+                zip.file(`${name}-page-${page}.jpg`, bytes);
+            }
+
+            const output = await zip.generateAsync({
+                type: "blob",
+                compression: "DEFLATE",
+            });
+
+            downloadBlob(output, `${name}-jpg-pages.zip`);
+            setStatus(`Exported ${pdfDoc.numPages} JPG page image(s) as ZIP.`);
+        } catch (error) {
+            console.error(error);
+            setStatus("Could not export all PDF pages as JPG.");
+        }
+    }
+
+    function printPdfDocument() {
+        if (!pdfBytes) {
+            setStatus("Upload a PDF first.");
+            return;
+        }
+
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const opened = openPrintableBlob(blob, baseName(fileName, "print-pdf"));
+
+        setStatus(opened ? "PDF opened in a print window." : "Popup blocked. Allow popups to print.");
     }
 
     function exportWordHtml() {
@@ -1784,9 +1966,7 @@ function FocusedOfficeTool({ preset }) {
             return;
         }
 
-        const name = baseName(fileName, "converted-word");
-
-        downloadText(`${name}.txt`, textPreview);
+        downloadText(`${baseName(fileName, "converted-word")}.txt`, textPreview);
         setStatus("Word document converted to TXT.");
     }
 
@@ -1825,6 +2005,20 @@ function FocusedOfficeTool({ preset }) {
         );
 
         setStatus("Simplified DOCX copy exported.");
+    }
+
+    function printWordDocument() {
+        if (!htmlPreview) {
+            setStatus("Upload a DOCX first.");
+            return;
+        }
+
+        const opened = openPrintableHtml({
+            title: baseName(fileName, "print-word"),
+            body: htmlPreview,
+        });
+
+        setStatus(opened ? "Word document opened in a print window." : "Popup blocked. Allow popups to print.");
     }
 
     function exportCsvAsJson() {
@@ -1908,6 +2102,385 @@ function FocusedOfficeTool({ preset }) {
         setStatus("CSV exported as a browser-generated PDF.");
     }
 
+    async function exportJpgToPdf() {
+        if (!file) {
+            setStatus("Upload a JPG, JPEG, or PNG first.");
+            return;
+        }
+
+        try {
+            const bytes = await file.arrayBuffer();
+            const pdf = await PDFDocument.create();
+
+            const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
+            const embeddedImage = isPng ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+
+            const maxWidth = 612;
+            const maxHeight = 792;
+            const scale = Math.min(maxWidth / embeddedImage.width, maxHeight / embeddedImage.height, 1);
+
+            const pageWidth = embeddedImage.width * scale;
+            const pageHeight = embeddedImage.height * scale;
+
+            const page = pdf.addPage([pageWidth, pageHeight]);
+
+            page.drawImage(embeddedImage, {
+                x: 0,
+                y: 0,
+                width: pageWidth,
+                height: pageHeight,
+            });
+
+            const output = await pdf.save();
+
+            downloadBytes(`${baseName(fileName, "image")}.pdf`, output, "application/pdf");
+            setStatus("Image converted to PDF.");
+        } catch (error) {
+            console.error(error);
+            setStatus("Could not convert this image to PDF. Use JPG, JPEG, or PNG.");
+        }
+    }
+
+    async function exportHeicToJpg() {
+        if (!file) {
+            setStatus("Upload a HEIC or HEIF image first.");
+            return;
+        }
+
+        try {
+            setStatus("Checking HEIC file.");
+
+            const lowerName = String(file.name || "").toLowerCase();
+            const looksHeic =
+                lowerName.endsWith(".heic") ||
+                lowerName.endsWith(".heif") ||
+                file.type === "image/heic" ||
+                file.type === "image/heif" ||
+                file.type === "image/heic-sequence" ||
+                file.type === "image/heif-sequence";
+
+            let confirmedHeic = false;
+
+            try {
+                confirmedHeic = await isHeic(file);
+            } catch {
+                confirmedHeic = looksHeic;
+            }
+
+            if (!confirmedHeic && !looksHeic) {
+                throw new Error("This does not look like a HEIC or HEIF image.");
+            }
+
+            setStatus("Converting HEIC to JPG. Large iPhone photos can take a moment.");
+
+            const converted = await heicTo({
+                blob: file,
+                type: "image/jpeg",
+                quality: 0.92,
+            });
+
+            const jpgBlob = await normalizeJpegBlob(converted);
+            const url = URL.createObjectURL(jpgBlob);
+
+            if (convertedImageUrl) {
+                URL.revokeObjectURL(convertedImageUrl);
+            }
+
+            setConvertedImageBlob(jpgBlob);
+            setConvertedImageUrl(url);
+
+            downloadBlob(jpgBlob, `${baseName(fileName, "heic-image")}.jpg`);
+
+            setStatus(`HEIC converted to JPG. Output size: ${formatBytes(jpgBlob.size)}.`);
+        } catch (error) {
+            console.error("HEIC conversion failed:", error);
+
+            const message =
+                error?.message ||
+                error?.toString?.() ||
+                "Unknown HEIC conversion error.";
+
+            setStatus(`HEIC conversion failed: ${message}`);
+        }
+    }
+
+    function convertTemperatureNow() {
+        const value = Number(temperatureInput);
+
+        if (!Number.isFinite(value)) {
+            setTemperatureOutput("");
+            setStatus("Enter a valid temperature number.");
+            return;
+        }
+
+        const result =
+            preset.temperatureDirection === "fToC"
+                ? ((value - 32) * 5) / 9
+                : (value * 9) / 5 + 32;
+
+        setTemperatureOutput(result.toFixed(2));
+
+        setStatus(
+            preset.temperatureDirection === "fToC"
+                ? `${value}°F = ${result.toFixed(2)}°C`
+                : `${value}°C = ${result.toFixed(2)}°F`
+        );
+    }
+
+    async function convertMediaWithFfmpeg({ outputExtension, outputMime, ffmpegArgs }) {
+        if (!file) {
+            setStatus("Upload an audio or video file first.");
+            return;
+        }
+
+        try {
+            const ffmpeg = await ensureFfmpegLoaded();
+            const inputName = getMediaInputName(file.name);
+            const outputName = `${baseName(file.name, "converted")}.${outputExtension}`;
+
+            setStatus("Writing media into FFmpeg memory.");
+            setFfmpegProgress(1);
+
+            try {
+                await ffmpeg.deleteFile(inputName);
+            } catch {
+                // ignore
+            }
+
+            try {
+                await ffmpeg.deleteFile(outputName);
+            } catch {
+                // ignore
+            }
+
+            await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+            setStatus(`Converting to ${outputExtension.toUpperCase()}.`);
+
+            await ffmpeg.exec(["-i", inputName, ...ffmpegArgs, outputName]);
+
+            const data = await ffmpeg.readFile(outputName);
+            const blob = new Blob([data], { type: outputMime });
+            const url = URL.createObjectURL(blob);
+
+            if (convertedMediaUrl) {
+                URL.revokeObjectURL(convertedMediaUrl);
+            }
+
+            setConvertedMediaBlob(blob);
+            setConvertedMediaUrl(url);
+            setConvertedMediaName(outputName);
+
+            setStatus(`Converted file ready. Original: ${formatBytes(file.size)}. New: ${formatBytes(blob.size)}.`);
+            setFfmpegProgress(100);
+
+            try {
+                await ffmpeg.deleteFile(inputName);
+                await ffmpeg.deleteFile(outputName);
+            } catch {
+                // cleanup best effort
+            }
+        } catch (error) {
+            console.error(error);
+            setStatus("Media conversion failed. Try a smaller file or a different browser-supported format.");
+        }
+    }
+
+    function convertToMp3() {
+        return convertMediaWithFfmpeg({
+            outputExtension: "mp3",
+            outputMime: "audio/mpeg",
+            ffmpegArgs: ["-vn", "-codec:a", "libmp3lame", "-q:a", "2"],
+        });
+    }
+
+    function convertMp3ToWav() {
+        return convertMediaWithFfmpeg({
+            outputExtension: "wav",
+            outputMime: "audio/wav",
+            ffmpegArgs: ["-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2"],
+        });
+    }
+
+    function convertWavToMp3() {
+        return convertToMp3();
+    }
+
+    function downloadConvertedMedia() {
+        if (!convertedMediaBlob) {
+            setStatus("Convert the media file first.");
+            return;
+        }
+
+        downloadBlob(convertedMediaBlob, convertedMediaName || `${baseName(fileName, "converted")}.mp3`);
+    }
+
+    async function compressVideoWithFfmpeg() {
+        if (!file) {
+            setStatus("Upload a video first.");
+            return;
+        }
+
+        try {
+            const ffmpeg = await ensureFfmpegLoaded();
+            const inputName = getVideoInputName(file.name);
+            const outputName = `${baseName(file.name, "compressed-video")}-compressed.mp4`;
+
+            setStatus("Writing video into FFmpeg memory.");
+            setFfmpegProgress(1);
+
+            try {
+                await ffmpeg.deleteFile(inputName);
+            } catch {
+                // ignore
+            }
+
+            try {
+                await ffmpeg.deleteFile(outputName);
+            } catch {
+                // ignore
+            }
+
+            await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+            setStatus("Compressing video to MP4.");
+
+            await ffmpeg.exec([
+                "-i",
+                inputName,
+                "-vf",
+                "scale='min(1280,iw)':-2",
+                "-r",
+                String(videoSettings.fps),
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                String(videoSettings.crf),
+                "-b:v",
+                `${videoSettings.videoBitrate}k`,
+                "-maxrate",
+                `${videoSettings.videoBitrate}k`,
+                "-bufsize",
+                `${videoSettings.videoBitrate * 2}k`,
+                "-c:a",
+                "aac",
+                "-b:a",
+                `${videoSettings.audioBitrate}k`,
+                "-movflags",
+                "+faststart",
+                outputName,
+            ]);
+
+            const data = await ffmpeg.readFile(outputName);
+            const blob = new Blob([data], { type: "video/mp4" });
+            const url = URL.createObjectURL(blob);
+
+            if (compressedVideoUrl) {
+                URL.revokeObjectURL(compressedVideoUrl);
+            }
+
+            setCompressedVideoBlob(blob);
+            setCompressedVideoUrl(url);
+
+            const original = file.size;
+            const next = blob.size;
+            const saved = original > 0 ? Math.max(0, 100 - (next / original) * 100) : 0;
+
+            setStatus(
+                `Compressed MP4 ready. Original: ${formatBytes(original)}. New: ${formatBytes(next)}. Estimated reduction: ${saved.toFixed(1)}%.`
+            );
+            setFfmpegProgress(100);
+
+            try {
+                await ffmpeg.deleteFile(inputName);
+                await ffmpeg.deleteFile(outputName);
+            } catch {
+                // cleanup best effort
+            }
+        } catch (error) {
+            console.error(error);
+            setStatus("Video compression failed. Try a shorter video or lower bitrate.");
+        }
+    }
+
+    function downloadCompressedVideo() {
+        if (!compressedVideoBlob) {
+            setStatus("Compress the video first.");
+            return;
+        }
+
+        downloadBlob(compressedVideoBlob, `${baseName(fileName, "video")}-compressed.mp4`);
+    }
+
+    async function optimizeZipFile() {
+        if (!file) {
+            setStatus("Upload a ZIP first.");
+            return;
+        }
+
+        try {
+            setStatus("Reading ZIP and rebuilding with maximum compression.");
+
+            const originalZip = await JSZip.loadAsync(await file.arrayBuffer());
+            const outputZip = new JSZip();
+
+            let copiedCount = 0;
+            let removedJunk = 0;
+
+            for (const entry of Object.values(originalZip.files)) {
+                if (entry.dir) continue;
+
+                if (isZipJunkFile(entry.name)) {
+                    removedJunk += 1;
+                    continue;
+                }
+
+                const bytes = await entry.async("uint8array");
+                outputZip.file(entry.name, bytes, {
+                    binary: true,
+                    compression: "DEFLATE",
+                    compressionOptions: {
+                        level: 9,
+                    },
+                });
+
+                copiedCount += 1;
+            }
+
+            const output = await outputZip.generateAsync({
+                type: "blob",
+                compression: "DEFLATE",
+                compressionOptions: {
+                    level: 9,
+                },
+            });
+
+            setOptimizedZipBlob(output);
+
+            const original = file.size;
+            const next = output.size;
+            const saved = original > 0 ? Math.max(0, 100 - (next / original) * 100) : 0;
+
+            setStatus(
+                `Optimized ZIP ready. Kept ${copiedCount} file(s), removed ${removedJunk} junk file(s). Original: ${formatBytes(original)}. New: ${formatBytes(next)}. Reduction: ${saved.toFixed(1)}%.`
+            );
+        } catch (error) {
+            console.error(error);
+            setStatus("Could not optimize this ZIP file. It may be encrypted, damaged, or too large.");
+        }
+    }
+
+    function downloadOptimizedZip() {
+        if (!optimizedZipBlob) {
+            setStatus("Optimize the ZIP first.");
+            return;
+        }
+
+        downloadBlob(optimizedZipBlob, `${baseName(fileName, "optimized")}-optimized.zip`);
+    }
+
     function ensureSignatureCanvas() {
         const canvas = signatureCanvasRef.current;
 
@@ -1969,7 +2542,7 @@ function FocusedOfficeTool({ preset }) {
 
         if (canvas) {
             setSignatureDataUrl(canvas.toDataURL("image/png"));
-            setStatus("Signature captured. Drag it on the PDF preview or resize it before export.");
+            setStatus("Signature captured. Adjust placement and export signed PDF.");
         }
     }
 
@@ -1982,98 +2555,6 @@ function FocusedOfficeTool({ preset }) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         setSignatureDataUrl("");
         setStatus("Signature cleared.");
-    }
-
-    function moveSignatureToPage() {
-        setSignature((current) => ({
-            ...current,
-            page: pageNumber,
-        }));
-
-        setStatus(`Signature moved to page ${pageNumber}.`);
-    }
-
-    function centerSignature() {
-        setSignature((current) => {
-            const width = current.width;
-            const height = width * (260 / 900);
-            const pdfWidth = canvasSize.width / zoom;
-            const pdfHeight = canvasSize.height / zoom;
-
-            return {
-                ...current,
-                x: Math.max(0, Math.round((pdfWidth - width) / 2)),
-                y: Math.max(0, Math.round((pdfHeight - height) / 2)),
-                page: pageNumber,
-            };
-        });
-
-        setStatus("Signature centered on the current page.");
-    }
-
-    function startSignatureOverlayDrag(mode, event) {
-        if (!signatureDataUrl) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        dragRef.current = {
-            mode,
-            startClientX: event.clientX,
-            startClientY: event.clientY,
-            startX: signature.x,
-            startY: signature.y,
-            startWidth: signature.width,
-        };
-
-        window.addEventListener("pointermove", handleSignatureOverlayDrag);
-        window.addEventListener("pointerup", stopSignatureOverlayDrag);
-    }
-
-    function handleSignatureOverlayDrag(event) {
-        const drag = dragRef.current;
-
-        if (!drag) return;
-
-        const dx = (event.clientX - drag.startClientX) / zoom;
-        const dy = (event.clientY - drag.startClientY) / zoom;
-        const pdfWidth = canvasSize.width / zoom;
-        const pdfHeight = canvasSize.height / zoom;
-
-        setSignature((current) => {
-            if (drag.mode === "resize") {
-                const nextWidth = clamp(drag.startWidth + dx, 40, pdfWidth);
-                const nextHeight = nextWidth * (260 / 900);
-
-                return {
-                    ...current,
-                    width: Math.round(nextWidth),
-                    x: clamp(current.x, 0, Math.max(0, pdfWidth - nextWidth)),
-                    y: clamp(current.y, 0, Math.max(0, pdfHeight - nextHeight)),
-                    page: pageNumber,
-                };
-            }
-
-            const width = current.width;
-            const height = width * (260 / 900);
-
-            return {
-                ...current,
-                x: Math.round(clamp(drag.startX + dx, 0, Math.max(0, pdfWidth - width))),
-                y: Math.round(clamp(drag.startY + dy, 0, Math.max(0, pdfHeight - height))),
-                page: pageNumber,
-            };
-        });
-    }
-
-    function stopSignatureOverlayDrag() {
-        removeSignatureDragListeners();
-        dragRef.current = null;
-    }
-
-    function removeSignatureDragListeners() {
-        window.removeEventListener("pointermove", handleSignatureOverlayDrag);
-        window.removeEventListener("pointerup", stopSignatureOverlayDrag);
     }
 
     async function exportSignedPdf() {
@@ -2090,7 +2571,7 @@ function FocusedOfficeTool({ preset }) {
         const pdf = await PDFDocument.load(pdfBytes);
         const signatureImage = await pdf.embedPng(signatureDataUrl);
         const pages = pdf.getPages();
-        const pageIndex = Math.max(0, Math.min(pages.length - 1, signature.page - 1));
+        const pageIndex = clamp(signature.page - 1, 0, pages.length - 1);
         const page = pages[pageIndex];
 
         const pageWidth = page.getWidth();
@@ -2110,10 +2591,9 @@ function FocusedOfficeTool({ preset }) {
         });
 
         const output = await pdf.save();
-        const name = baseName(fileName, "signed-document");
 
-        downloadBytes(`${name}-signed.pdf`, output, "application/pdf");
-        setStatus("Signed PDF exported with the rendered signature placement.");
+        downloadBytes(`${baseName(fileName, "signed-document")}-signed.pdf`, output, "application/pdf");
+        setStatus("Signed PDF exported.");
     }
 
     return (
@@ -2146,63 +2626,55 @@ function FocusedOfficeTool({ preset }) {
 
                 <SectionHeader title={preset.h1} description={preset.description} />
 
-                <input
-                    ref={fileInputRef}
-                    hidden
-                    type="file"
-                    accept={preset.accept}
-                    onChange={handleUpload}
-                />
+                <input ref={fileInputRef} hidden type="file" accept={preset.accept} onChange={handleUpload} />
 
                 <Grid container spacing={2.5}>
                     <Grid item xs={12} lg={3.4}>
                         <Paper sx={sidePanelSx}>
                             <Stack spacing={2}>
-                                <Button
-                                    variant="contained"
-                                    startIcon={<UploadFileRoundedIcon />}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    sx={primaryButtonSx}
-                                >
-                                    Select File
-                                </Button>
+                                {!isTemperatureMode && (
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<UploadFileRoundedIcon />}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        sx={primaryButtonSx}
+                                    >
+                                        Upload File
+                                    </Button>
+                                )}
 
-                                <Chip label={fileName || "No file selected"} sx={pillSx} />
+                                {fileName && (
+                                    <Typography sx={{ color: "rgba(255,255,255,.72)", wordBreak: "break-word" }}>
+                                        {fileName}
+                                    </Typography>
+                                )}
 
-                                <Typography sx={{ color: "rgba(255,255,255,.68)", lineHeight: 1.65 }}>
-                                    {status}
-                                </Typography>
+                                <Paper sx={statusSx}>
+                                    <Typography sx={{ color: "rgba(255,255,255,.82)", lineHeight: 1.6 }}>
+                                        {status}
+                                    </Typography>
+                                </Paper>
 
-                                <Divider sx={{ borderColor: "rgba(255,255,255,.12)" }} />
+                                {(ffmpegProgress > 0 || ffmpegLoaded) && (
+                                    <Stack spacing={1}>
+                                        <LinearProgress variant="determinate" value={ffmpegProgress} />
+                                        {ffmpegLog && (
+                                            <Typography sx={{ color: "rgba(255,255,255,.48)", fontSize: 12 }}>
+                                                {ffmpegLog}
+                                            </Typography>
+                                        )}
+                                    </Stack>
+                                )}
 
-                                {isPdfMode && (
+                                {isPdfMode && pdfDoc && (
                                     <>
-                                        <Stack direction="row" spacing={1}>
-                                            <Button
-                                                fullWidth
-                                                disabled={pageNumber <= 1}
-                                                onClick={() => setPageNumber((value) => Math.max(1, value - 1))}
-                                                sx={smallButtonSx}
-                                            >
-                                                Prev
-                                            </Button>
+                                        <Divider sx={dividerSx} />
 
-                                            <Button
-                                                fullWidth
-                                                disabled={pageNumber >= pageCount}
-                                                onClick={() =>
-                                                    setPageNumber((value) => Math.min(pageCount, value + 1))
-                                                }
-                                                sx={smallButtonSx}
-                                            >
-                                                Next
-                                            </Button>
-                                        </Stack>
-
+                                        <Typography sx={labelSx}>Page</Typography>
                                         <Select
+                                            size="small"
                                             value={pageNumber}
                                             onChange={(event) => setPageNumber(Number(event.target.value))}
-                                            fullWidth
                                             sx={selectSx}
                                         >
                                             {pageOptions.map((page) => (
@@ -2212,257 +2684,205 @@ function FocusedOfficeTool({ preset }) {
                                             ))}
                                         </Select>
 
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 900 }}>
-                                            Zoom
-                                        </Typography>
-
+                                        <Typography sx={labelSx}>Zoom</Typography>
                                         <Slider
-                                            min={0.7}
-                                            max={2.4}
+                                            min={0.75}
+                                            max={2.5}
                                             step={0.05}
                                             value={zoom}
-                                            onChange={(_, value) => setZoom(value)}
+                                            onChange={(_, value) => setZoom(Number(value))}
                                         />
                                     </>
                                 )}
 
                                 {preset.mode === "convertPdf" && (
                                     <>
-                                        <Button startIcon={<ArticleRoundedIcon />} onClick={exportPdfToDocx} sx={primaryButtonSx}>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<DescriptionRoundedIcon />} onClick={exportPdfToDocx} sx={primaryButtonSx}>
                                             Export PDF to DOCX
                                         </Button>
-
                                         <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportPdfText} sx={smallButtonSx}>
-                                            Export PDF Text
+                                            Export Text
                                         </Button>
-
                                         <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportPdfPagePng} sx={smallButtonSx}>
                                             Export Current Page PNG
                                         </Button>
-
-                                        <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportPdfCopy} sx={smallButtonSx}>
+                                        <Button startIcon={<PictureAsPdfRoundedIcon />} onClick={exportPdfCopy} sx={smallButtonSx}>
                                             Export PDF Copy
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "pdfToJpg" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportCurrentPdfPageJpg} sx={primaryButtonSx}>
+                                            Export Current Page JPG
+                                        </Button>
+                                        <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportAllPdfPagesJpgZip} sx={smallButtonSx}>
+                                            Export All Pages JPG ZIP
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "printPdf" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<OpenInNewRoundedIcon />} onClick={printPdfDocument} sx={primaryButtonSx}>
+                                            Print PDF
                                         </Button>
                                     </>
                                 )}
 
                                 {preset.mode === "convertWord" && (
                                     <>
+                                        <Divider sx={dividerSx} />
                                         <Button startIcon={<PictureAsPdfRoundedIcon />} onClick={exportWordPdf} sx={primaryButtonSx}>
                                             Export DOCX to PDF
                                         </Button>
-
-                                        <Button startIcon={<ArticleRoundedIcon />} onClick={exportWordDocxCopy} sx={smallButtonSx}>
-                                            Export DOCX Copy
-                                        </Button>
-
                                         <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportWordHtml} sx={smallButtonSx}>
                                             Export HTML
                                         </Button>
-
                                         <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportWordText} sx={smallButtonSx}>
                                             Export TXT
                                         </Button>
+                                        <Button startIcon={<DescriptionRoundedIcon />} onClick={exportWordDocxCopy} sx={smallButtonSx}>
+                                            Export DOCX Copy
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "printWord" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<OpenInNewRoundedIcon />} onClick={printWordDocument} sx={primaryButtonSx}>
+                                            Print Word Document
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "signDocument" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+
+                                        <Typography sx={labelSx}>Draw signature</Typography>
+                                        <Box
+                                            component="canvas"
+                                            ref={signatureCanvasRef}
+                                            onPointerDown={startSignature}
+                                            onPointerMove={drawSignature}
+                                            onPointerUp={stopSignature}
+                                            onPointerLeave={stopSignature}
+                                            sx={signatureCanvasSx}
+                                        />
+
+                                        <Stack direction="row" spacing={1}>
+                                            <Button startIcon={<ClearRoundedIcon />} onClick={clearSignature} sx={smallButtonSx}>
+                                                Clear
+                                            </Button>
+                                            <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportSignedPdf} sx={primaryButtonSx}>
+                                                Export Signed PDF
+                                            </Button>
+                                        </Stack>
+
+                                        <TextField
+                                            label="Page"
+                                            type="number"
+                                            value={signature.page}
+                                            onChange={(event) =>
+                                                setSignature((current) => ({
+                                                    ...current,
+                                                    page: clamp(Number(event.target.value), 1, pageCount || 1),
+                                                }))
+                                            }
+                                            sx={textFieldSx}
+                                        />
+
+                                        <TextField
+                                            label="X position"
+                                            type="number"
+                                            value={signature.x}
+                                            onChange={(event) =>
+                                                setSignature((current) => ({ ...current, x: Number(event.target.value) }))
+                                            }
+                                            sx={textFieldSx}
+                                        />
+
+                                        <TextField
+                                            label="Y from top"
+                                            type="number"
+                                            value={signature.y}
+                                            onChange={(event) =>
+                                                setSignature((current) => ({ ...current, y: Number(event.target.value) }))
+                                            }
+                                            sx={textFieldSx}
+                                        />
+
+                                        <TextField
+                                            label="Signature width"
+                                            type="number"
+                                            value={signature.width}
+                                            onChange={(event) =>
+                                                setSignature((current) => ({ ...current, width: Number(event.target.value) }))
+                                            }
+                                            sx={textFieldSx}
+                                        />
                                     </>
                                 )}
 
                                 {isCsvMode && (
                                     <>
-                                        <Stack spacing={0.75}>
-                                            <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                                CSV stats
-                                            </Typography>
-                                            <Typography sx={{ color: "rgba(255,255,255,.65)", fontSize: 13 }}>
-                                                Rows: {csvStats.rowCount} • Columns: {csvStats.columnCount} • Empty cells: {csvStats.emptyCells}
-                                            </Typography>
-                                        </Stack>
-
+                                        <Divider sx={dividerSx} />
                                         {(preset.mode === "convertCsv" || preset.mode === "csvToJson") && (
                                             <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportCsvAsJson} sx={primaryButtonSx}>
                                                 Export CSV to JSON
                                             </Button>
                                         )}
-
                                         {(preset.mode === "convertCsv" || preset.mode === "jsonToCsv") && (
-                                            <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportJsonAsCsv} sx={primaryButtonSx}>
+                                            <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportJsonAsCsv} sx={smallButtonSx}>
                                                 Export JSON to CSV
                                             </Button>
                                         )}
-
                                         {(preset.mode === "convertCsv" || preset.mode === "csvCleaner") && (
                                             <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportCleanCsv} sx={smallButtonSx}>
-                                                Clean & Export CSV
+                                                Clean CSV
                                             </Button>
                                         )}
-
                                         {(preset.mode === "convertCsv" || preset.mode === "csvDuplicates") && (
                                             <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportDedupeCsv} sx={smallButtonSx}>
                                                 Remove Duplicates
                                             </Button>
                                         )}
-
-                                        {(preset.mode === "convertCsv" || preset.mode === "csvDelimiter") && (
-                                            <>
-                                                <Button onClick={() => exportDelimitedCsv(",")} sx={smallButtonSx}>
-                                                    Export Comma CSV
-                                                </Button>
-
-                                                <Button onClick={() => exportDelimitedCsv(";")} sx={smallButtonSx}>
-                                                    Export Semicolon CSV
-                                                </Button>
-
-                                                <Button onClick={() => exportDelimitedCsv("\t")} sx={smallButtonSx}>
-                                                    Export Tab TSV
-                                                </Button>
-
-                                                <Button onClick={() => exportDelimitedCsv("|")} sx={smallButtonSx}>
-                                                    Export Pipe CSV
-                                                </Button>
-                                            </>
-                                        )}
-
                                         {(preset.mode === "convertCsv" || preset.mode === "csvToPdf") && (
                                             <Button startIcon={<PictureAsPdfRoundedIcon />} onClick={exportCsvPdf} sx={smallButtonSx}>
                                                 Export CSV to PDF
                                             </Button>
                                         )}
-                                    </>
-                                )}
-
-                                {isVideoMode && (
-                                    <>
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                            Output resolution height
-                                        </Typography>
-                                        <Select
-                                            value={videoSettings.height}
-                                            onChange={(event) =>
-                                                setVideoSettings((current) => ({
-                                                    ...current,
-                                                    height: Number(event.target.value),
-                                                }))
-                                            }
-                                            fullWidth
-                                            sx={selectSx}
-                                        >
-                                            <MenuItem value={1080}>1080p</MenuItem>
-                                            <MenuItem value={720}>720p Recommended</MenuItem>
-                                            <MenuItem value={480}>480p Small Upload</MenuItem>
-                                            <MenuItem value={360}>360p Tiny File</MenuItem>
-                                        </Select>
-
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                            Quality CRF: {videoSettings.crf}
-                                        </Typography>
-                                        <Slider
-                                            min={20}
-                                            max={36}
-                                            step={1}
-                                            value={videoSettings.crf}
-                                            onChange={(_, value) =>
-                                                setVideoSettings((current) => ({
-                                                    ...current,
-                                                    crf: value,
-                                                }))
-                                            }
-                                        />
-
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                            Video bitrate: {videoSettings.videoBitrate} kbps
-                                        </Typography>
-                                        <Slider
-                                            min={500}
-                                            max={6000}
-                                            step={100}
-                                            value={videoSettings.videoBitrate}
-                                            onChange={(_, value) =>
-                                                setVideoSettings((current) => ({
-                                                    ...current,
-                                                    videoBitrate: value,
-                                                }))
-                                            }
-                                        />
-
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                            Frame rate
-                                        </Typography>
-                                        <Select
-                                            value={videoSettings.fps}
-                                            onChange={(event) =>
-                                                setVideoSettings((current) => ({
-                                                    ...current,
-                                                    fps: Number(event.target.value),
-                                                }))
-                                            }
-                                            fullWidth
-                                            sx={selectSx}
-                                        >
-                                            <MenuItem value={30}>30 FPS Recommended</MenuItem>
-                                            <MenuItem value={24}>24 FPS Smaller</MenuItem>
-                                            <MenuItem value={15}>15 FPS Very Small</MenuItem>
-                                        </Select>
-
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                            Audio bitrate: {videoSettings.audioBitrate} kbps
-                                        </Typography>
-                                        <Slider
-                                            min={64}
-                                            max={192}
-                                            step={32}
-                                            value={videoSettings.audioBitrate}
-                                            onChange={(_, value) =>
-                                                setVideoSettings((current) => ({
-                                                    ...current,
-                                                    audioBitrate: value,
-                                                }))
-                                            }
-                                        />
-
-                                        <Button startIcon={<TransformRoundedIcon />} onClick={compressVideoWithFfmpeg} sx={primaryButtonSx}>
-                                            Compress to MP4
-                                        </Button>
-
-                                        <Button
-                                            startIcon={<FileDownloadRoundedIcon />}
-                                            onClick={downloadCompressedVideo}
-                                            disabled={!compressedVideoBlob}
-                                            sx={smallButtonSx}
-                                        >
-                                            Download Compressed MP4
-                                        </Button>
-
-                                        {(ffmpegProgress > 0 || ffmpegLog) && (
-                                            <Box>
-                                                <LinearProgress
-                                                    variant={ffmpegProgress > 0 ? "determinate" : "indeterminate"}
-                                                    value={ffmpegProgress}
-                                                    sx={{ mb: 1, borderRadius: 999 }}
-                                                />
-                                                <Typography sx={{ color: "rgba(255,255,255,.62)", fontSize: 12 }}>
-                                                    {ffmpegProgress}% {ffmpegLog ? `• ${ffmpegLog}` : ""}
-                                                </Typography>
-                                            </Box>
+                                        {(preset.mode === "convertCsv" || preset.mode === "csvDelimiter") && (
+                                            <>
+                                                <Button onClick={() => exportDelimitedCsv(",")} sx={smallButtonSx}>
+                                                    Export Comma CSV
+                                                </Button>
+                                                <Button onClick={() => exportDelimitedCsv("\t")} sx={smallButtonSx}>
+                                                    Export Tab TSV
+                                                </Button>
+                                                <Button onClick={() => exportDelimitedCsv(";")} sx={smallButtonSx}>
+                                                    Export Semicolon CSV
+                                                </Button>
+                                                <Button onClick={() => exportDelimitedCsv("|")} sx={smallButtonSx}>
+                                                    Export Pipe CSV
+                                                </Button>
+                                            </>
                                         )}
                                     </>
                                 )}
 
                                 {isZipMode && (
                                     <>
-                                        {zipStats && (
-                                            <Typography sx={{ color: "rgba(255,255,255,.68)", lineHeight: 1.65 }}>
-                                                Files: {zipStats.fileCount} • Junk files: {zipStats.junkCount} • Original: {formatBytes(zipStats.originalSize)}
-                                            </Typography>
-                                        )}
-
-                                        <Typography sx={{ color: "rgba(255,255,255,.58)", lineHeight: 1.65, fontSize: 13 }}>
-                                            ZIP, MP4, MOV, JPG, PNG, and PDF files are often already compressed.
-                                            Rebuilding may help most when the ZIP contains text, CSV, docs, or junk files.
-                                        </Typography>
-
+                                        <Divider sx={dividerSx} />
                                         <Button startIcon={<TransformRoundedIcon />} onClick={optimizeZipFile} sx={primaryButtonSx}>
                                             Optimize ZIP
                                         </Button>
-
                                         <Button
                                             startIcon={<FileDownloadRoundedIcon />}
                                             onClick={downloadOptimizedZip}
@@ -2474,460 +2894,416 @@ function FocusedOfficeTool({ preset }) {
                                     </>
                                 )}
 
-                                {preset.mode === "signDocument" && (
+                                {isVideoMode && (
                                     <>
-                                        <Divider sx={{ borderColor: "rgba(255,255,255,.12)" }} />
+                                        <Divider sx={dividerSx} />
 
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 950 }}>
-                                            Signature placement
-                                        </Typography>
-
-                                        <TextField
-                                            label="Signature page"
-                                            type="number"
-                                            value={signature.page}
-                                            onChange={(event) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    page: clamp(Number(event.target.value) || 1, 1, pageCount || 1),
-                                                }))
-                                            }
-                                            sx={textFieldSx}
-                                        />
-
-                                        <TextField
-                                            label="X position"
-                                            type="number"
-                                            value={signature.x}
-                                            onChange={(event) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    x: Number(event.target.value),
-                                                }))
-                                            }
-                                            sx={textFieldSx}
-                                        />
-
-                                        <TextField
-                                            label="Y position from top"
-                                            type="number"
-                                            value={signature.y}
-                                            onChange={(event) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    y: Number(event.target.value),
-                                                }))
-                                            }
-                                            sx={textFieldSx}
-                                        />
-
-                                        <TextField
-                                            label="Signature width"
-                                            type="number"
-                                            value={signature.width}
-                                            onChange={(event) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    width: Math.max(20, Number(event.target.value) || 20),
-                                                }))
-                                            }
-                                            sx={textFieldSx}
-                                        />
-
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 900 }}>
-                                            Scale / resize
-                                        </Typography>
-
+                                        <Typography sx={labelSx}>CRF Quality: {videoSettings.crf}</Typography>
                                         <Slider
-                                            min={40}
-                                            max={520}
-                                            value={signature.width}
+                                            min={18}
+                                            max={36}
+                                            step={1}
+                                            value={videoSettings.crf}
                                             onChange={(_, value) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    width: value,
-                                                }))
+                                                setVideoSettings((current) => ({ ...current, crf: Number(value) }))
                                             }
                                         />
 
-                                        <TextField
-                                            label="Ink color"
-                                            type="color"
-                                            value={signature.color}
-                                            onChange={(event) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    color: event.target.value,
-                                                }))
-                                            }
-                                            InputLabelProps={{ shrink: true }}
-                                            sx={textFieldSx}
-                                        />
-
-                                        <Typography sx={{ color: "#dff8ff", fontWeight: 900 }}>
-                                            Ink thickness
-                                        </Typography>
-
+                                        <Typography sx={labelSx}>FPS: {videoSettings.fps}</Typography>
                                         <Slider
-                                            min={1}
-                                            max={12}
-                                            value={signature.lineWidth}
+                                            min={12}
+                                            max={60}
+                                            step={1}
+                                            value={videoSettings.fps}
                                             onChange={(_, value) =>
-                                                setSignature((current) => ({
-                                                    ...current,
-                                                    lineWidth: value,
-                                                }))
+                                                setVideoSettings((current) => ({ ...current, fps: Number(value) }))
                                             }
                                         />
 
-                                        <Stack direction="row" spacing={1}>
-                                            <Button fullWidth startIcon={<DragIndicatorRoundedIcon />} onClick={centerSignature} sx={smallButtonSx}>
-                                                Center
-                                            </Button>
+                                        <Typography sx={labelSx}>Video bitrate: {videoSettings.videoBitrate}k</Typography>
+                                        <Slider
+                                            min={500}
+                                            max={6000}
+                                            step={100}
+                                            value={videoSettings.videoBitrate}
+                                            onChange={(_, value) =>
+                                                setVideoSettings((current) => ({ ...current, videoBitrate: Number(value) }))
+                                            }
+                                        />
 
-                                            <Button fullWidth startIcon={<PictureAsPdfRoundedIcon />} onClick={moveSignatureToPage} sx={smallButtonSx}>
-                                                Use Page
-                                            </Button>
-                                        </Stack>
-
-                                        <Button startIcon={<ClearRoundedIcon />} onClick={clearSignature} sx={smallButtonSx}>
-                                            Clear Signature
+                                        <Button startIcon={<TransformRoundedIcon />} onClick={compressVideoWithFfmpeg} sx={primaryButtonSx}>
+                                            Compress Video
                                         </Button>
 
-                                        <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportSignedPdf} sx={primaryButtonSx}>
-                                            Export Signed PDF
+                                        <Button
+                                            startIcon={<FileDownloadRoundedIcon />}
+                                            onClick={downloadCompressedVideo}
+                                            disabled={!compressedVideoBlob}
+                                            sx={smallButtonSx}
+                                        >
+                                            Download MP4
                                         </Button>
                                     </>
                                 )}
 
-                                <Button
-                                    component={RouterLink}
-                                    to="/office-tools"
-                                    endIcon={<OpenInNewRoundedIcon />}
-                                    sx={smallButtonSx}
-                                >
-                                    All Additional Tools
-                                </Button>
+                                {preset.mode === "jpgToPdf" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<PictureAsPdfRoundedIcon />} onClick={exportJpgToPdf} sx={primaryButtonSx}>
+                                            Export Image to PDF
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "heicToJpg" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<FileDownloadRoundedIcon />} onClick={exportHeicToJpg} sx={primaryButtonSx}>
+                                            Export HEIC to JPG
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "temperature" && (
+                                    <>
+                                        <TextField
+                                            fullWidth
+                                            label={preset.temperatureDirection === "fToC" ? "Fahrenheit" : "Celsius"}
+                                            value={temperatureInput}
+                                            onChange={(event) => setTemperatureInput(event.target.value)}
+                                            sx={textFieldSx}
+                                        />
+
+                                        <Button startIcon={<TransformRoundedIcon />} onClick={convertTemperatureNow} sx={primaryButtonSx}>
+                                            Convert Temperature
+                                        </Button>
+
+                                        {temperatureOutput && (
+                                            <Typography sx={{ color: "#9ee8ff", fontWeight: 950, fontSize: 20 }}>
+                                                {temperatureOutput}°{preset.temperatureDirection === "fToC" ? "C" : "F"}
+                                            </Typography>
+                                        )}
+                                    </>
+                                )}
+
+                                {preset.mode === "audioToMp3" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<TransformRoundedIcon />} onClick={convertToMp3} sx={primaryButtonSx}>
+                                            Convert to MP3
+                                        </Button>
+                                        <Button
+                                            startIcon={<FileDownloadRoundedIcon />}
+                                            onClick={downloadConvertedMedia}
+                                            disabled={!convertedMediaBlob}
+                                            sx={smallButtonSx}
+                                        >
+                                            Download MP3
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "mp3ToWav" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<TransformRoundedIcon />} onClick={convertMp3ToWav} sx={primaryButtonSx}>
+                                            Convert MP3 to WAV
+                                        </Button>
+                                        <Button
+                                            startIcon={<FileDownloadRoundedIcon />}
+                                            onClick={downloadConvertedMedia}
+                                            disabled={!convertedMediaBlob}
+                                            sx={smallButtonSx}
+                                        >
+                                            Download WAV
+                                        </Button>
+                                    </>
+                                )}
+
+                                {preset.mode === "wavToMp3" && (
+                                    <>
+                                        <Divider sx={dividerSx} />
+                                        <Button startIcon={<TransformRoundedIcon />} onClick={convertWavToMp3} sx={primaryButtonSx}>
+                                            Convert WAV to MP3
+                                        </Button>
+                                        <Button
+                                            startIcon={<FileDownloadRoundedIcon />}
+                                            onClick={downloadConvertedMedia}
+                                            disabled={!convertedMediaBlob}
+                                            sx={smallButtonSx}
+                                        >
+                                            Download MP3
+                                        </Button>
+                                    </>
+                                )}
                             </Stack>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={12} lg={8.6}>
-                        <Paper sx={previewPanelSx}>
-                            {isPdfMode && (
-                                <Box sx={canvasWrapSx}>
-                                    {pdfDoc ? (
-                                        <Box
-                                            sx={{
-                                                width: canvasSize.width,
-                                                height: canvasSize.height,
-                                                position: "relative",
-                                            }}
-                                        >
-                                            <canvas
-                                                ref={canvasRef}
-                                                style={{
-                                                    display: "block",
-                                                    borderRadius: 12,
-                                                    boxShadow: "0 24px 80px rgba(0,0,0,.35)",
-                                                }}
-                                            />
-
-                                            {preset.mode === "signDocument" &&
-                                                signatureDataUrl &&
-                                                signature.page === pageNumber && (
-                                                    <Box
-                                                        onPointerDown={(event) => startSignatureOverlayDrag("move", event)}
-                                                        sx={{
-                                                            position: "absolute",
-                                                            left: signatureDisplay.left,
-                                                            top: signatureDisplay.top,
-                                                            width: signatureDisplay.width,
-                                                            height: signatureDisplay.height,
-                                                            border: "2px solid rgba(158,232,255,.95)",
-                                                            borderRadius: 1.5,
-                                                            background: "rgba(158,232,255,.06)",
-                                                            cursor: "move",
-                                                            touchAction: "none",
-                                                            boxShadow: "0 12px 30px rgba(0,0,0,.24)",
-                                                        }}
-                                                    >
-                                                        <Box
-                                                            component="img"
-                                                            src={signatureDataUrl}
-                                                            alt="Rendered signature placement"
-                                                            draggable={false}
-                                                            sx={{
-                                                                width: "100%",
-                                                                height: "100%",
-                                                                display: "block",
-                                                                objectFit: "contain",
-                                                                pointerEvents: "none",
-                                                            }}
-                                                        />
-
-                                                        <Box
-                                                            sx={{
-                                                                position: "absolute",
-                                                                left: 6,
-                                                                top: 6,
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 0.5,
-                                                                px: 0.7,
-                                                                py: 0.35,
-                                                                borderRadius: 999,
-                                                                color: "#061019",
-                                                                fontSize: 11,
-                                                                fontWeight: 950,
-                                                                background: "linear-gradient(135deg, #9ee8ff, #b38cff)",
-                                                                pointerEvents: "none",
-                                                            }}
-                                                        >
-                                                            <DragIndicatorRoundedIcon sx={{ fontSize: 14 }} />
-                                                            Drag
-                                                        </Box>
-
-                                                        <Box
-                                                            onPointerDown={(event) => startSignatureOverlayDrag("resize", event)}
-                                                            sx={{
-                                                                position: "absolute",
-                                                                right: -11,
-                                                                bottom: -11,
-                                                                width: 26,
-                                                                height: 26,
-                                                                borderRadius: "9px",
-                                                                display: "grid",
-                                                                placeItems: "center",
-                                                                color: "#061019",
-                                                                background: "linear-gradient(135deg, #9ee8ff, #b38cff)",
-                                                                border: "2px solid #061019",
-                                                                cursor: "nwse-resize",
-                                                                touchAction: "none",
-                                                            }}
-                                                        >
-                                                            <AspectRatioRoundedIcon sx={{ fontSize: 16 }} />
-                                                        </Box>
-                                                    </Box>
-                                                )}
-                                        </Box>
-                                    ) : (
-                                        <EmptyState text="Upload a PDF to preview it." />
-                                    )}
-                                </Box>
-                            )}
-
-                            {isWordMode && (
-                                <Box sx={documentPreviewSx}>
-                                    {htmlPreview ? (
-                                        <Box dangerouslySetInnerHTML={{ __html: htmlPreview }} />
-                                    ) : (
-                                        <EmptyState text="Upload a DOCX file to preview or convert it to PDF, HTML, TXT, or DOCX." />
-                                    )}
-                                </Box>
-                            )}
-
-                            {preset.mode === "viewPowerPoint" && (
-                                <Stack spacing={2}>
-                                    {slides.length > 0 ? (
-                                        slides.map((slide, index) => (
-                                            <Card key={slide.name} sx={slideCardSx}>
-                                                <CardContent>
-                                                    <Typography variant="overline" sx={{ color: "#9ee8ff", fontWeight: 950 }}>
-                                                        Slide {index + 1}
-                                                    </Typography>
-
-                                                    <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
-                                                        {slide.title}
-                                                    </Typography>
-
-                                                    <Typography
-                                                        component="pre"
-                                                        sx={{
-                                                            whiteSpace: "pre-wrap",
-                                                            color: "rgba(255,255,255,.74)",
-                                                            lineHeight: 1.6,
-                                                            fontFamily: "inherit",
-                                                        }}
-                                                    >
-                                                        {slide.text}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        ))
-                                    ) : (
-                                        <EmptyState text="Upload a PPTX file to view extracted slide text." />
-                                    )}
-                                </Stack>
-                            )}
-
-                            {isCsvMode && (
-                                csvRows.length > 0 ? (
-                                    <TableContainer sx={{ maxHeight: "72vh", background: "white" }}>
-                                        <Table stickyHeader size="small">
-                                            <TableHead>
-                                                <TableRow>
-                                                    {csvRows[0].map((cell, index) => (
-                                                        <TableCell
-                                                            key={index}
-                                                            sx={{
-                                                                background: "#eef2ff",
-                                                                color: "#111827",
-                                                                fontWeight: 950,
-                                                            }}
-                                                        >
-                                                            {cell || `Column ${index + 1}`}
-                                                        </TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHead>
-
-                                            <TableBody>
-                                                {csvRows.slice(1, 501).map((row, rowIndex) => (
-                                                    <TableRow key={rowIndex}>
-                                                        {row.map((cell, cellIndex) => (
-                                                            <TableCell
-                                                                key={cellIndex}
-                                                                sx={{
-                                                                    color: "#111827",
-                                                                    borderColor: "#d1d5db",
-                                                                }}
-                                                            >
-                                                                {cell}
-                                                            </TableCell>
-                                                        ))}
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
+                        {isPdfMode && (
+                            <Paper sx={previewPanelSx}>
+                                {pdfDoc ? (
+                                    <Box sx={pdfScrollSx}>
+                                        <canvas ref={canvasRef} />
+                                    </Box>
                                 ) : (
-                                    <EmptyState text="Upload a CSV, TSV, or JSON file to preview and convert it." />
-                                )
-                            )}
+                                    <EmptyState text="Upload a PDF to preview, convert, print, sign, or export it." />
+                                )}
+                            </Paper>
+                        )}
 
-                            {isVideoMode && (
-                                <Stack spacing={2}>
-                                    {videoUrl ? (
-                                        <>
-                                            <Card sx={slideCardSx}>
-                                                <CardContent>
-                                                    <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
-                                                        Original video
-                                                    </Typography>
-                                                    <Box
-                                                        component="video"
-                                                        src={videoUrl}
-                                                        controls
-                                                        sx={{
-                                                            width: "100%",
-                                                            maxHeight: 420,
-                                                            borderRadius: 3,
-                                                            background: "black",
-                                                        }}
-                                                    />
-                                                    <Typography sx={{ color: "rgba(255,255,255,.66)", mt: 1 }}>
-                                                        Original size: {formatBytes(file?.size || 0)}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
+                        {isWordMode && (
+                            <Paper sx={previewPanelSx}>
+                                {htmlPreview ? (
+                                    <Box sx={docPreviewSx} dangerouslySetInnerHTML={{ __html: htmlPreview }} />
+                                ) : (
+                                    <EmptyState text="Upload a DOCX file to preview, convert, or print it." />
+                                )}
+                            </Paper>
+                        )}
 
-                                            {compressedVideoUrl && (
-                                                <Card sx={slideCardSx}>
-                                                    <CardContent>
-                                                        <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
-                                                            Compressed MP4 preview
-                                                        </Typography>
-                                                        <Box
-                                                            component="video"
-                                                            src={compressedVideoUrl}
-                                                            controls
-                                                            sx={{
-                                                                width: "100%",
-                                                                maxHeight: 420,
-                                                                borderRadius: 3,
-                                                                background: "black",
-                                                            }}
-                                                        />
-                                                        <Typography sx={{ color: "rgba(255,255,255,.66)", mt: 1 }}>
-                                                            Compressed size: {formatBytes(compressedVideoBlob?.size || 0)}
-                                                        </Typography>
-                                                    </CardContent>
-                                                </Card>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <EmptyState text="Upload an MP4, MOV, or WEBM video to compress it into a smaller MP4 for upload." />
-                                    )}
-                                </Stack>
-                            )}
-
-                            {isZipMode && (
-                                <Stack spacing={2}>
-                                    {zipStats ? (
-                                        <Card sx={slideCardSx}>
+                        {preset.mode === "viewPowerPoint" && (
+                            <Stack spacing={2}>
+                                {slides.length ? (
+                                    slides.map((slide, index) => (
+                                        <Card key={slide.name} sx={slideCardSx}>
                                             <CardContent>
-                                                <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
-                                                    ZIP ready for optimization
+                                                <Typography variant="overline" sx={{ color: "#9ee8ff", fontWeight: 950 }}>
+                                                    Slide {index + 1}
                                                 </Typography>
-                                                <Typography sx={{ color: "rgba(255,255,255,.72)", lineHeight: 1.75 }}>
-                                                    Files found: {zipStats.fileCount}
-                                                    <br />
-                                                    Common junk files: {zipStats.junkCount}
-                                                    <br />
-                                                    Original size: {formatBytes(zipStats.originalSize)}
-                                                    <br />
-                                                    Optimized size: {optimizedZipBlob ? formatBytes(optimizedZipBlob.size) : "Not exported yet"}
+                                                <Typography variant="h5" sx={{ fontWeight: 950, mb: 1 }}>
+                                                    {slide.title}
+                                                </Typography>
+                                                <Typography sx={{ whiteSpace: "pre-wrap", color: "rgba(255,255,255,.76)" }}>
+                                                    {slide.text}
                                                 </Typography>
                                             </CardContent>
                                         </Card>
-                                    ) : (
-                                        <EmptyState text="Upload a ZIP file to clean junk entries and rebuild it with maximum compression." />
-                                    )}
-                                </Stack>
-                            )}
+                                    ))
+                                ) : (
+                                    <EmptyState text="Upload a PowerPoint file to extract slide text." />
+                                )}
+                            </Stack>
+                        )}
 
-                            {preset.mode === "signDocument" && (
-                                <Box sx={{ mt: 2 }}>
-                                    <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
-                                        Draw your signature
+                        {isCsvMode && (
+                            <Stack spacing={2}>
+                                {csvRows.length ? (
+                                    <>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={12} md={4}>
+                                                <Paper sx={metricSx}>
+                                                    <Typography sx={metricLabelSx}>Rows</Typography>
+                                                    <Typography sx={metricValueSx}>{csvStats.rowCount}</Typography>
+                                                </Paper>
+                                            </Grid>
+                                            <Grid item xs={12} md={4}>
+                                                <Paper sx={metricSx}>
+                                                    <Typography sx={metricLabelSx}>Columns</Typography>
+                                                    <Typography sx={metricValueSx}>{csvStats.columnCount}</Typography>
+                                                </Paper>
+                                            </Grid>
+                                            <Grid item xs={12} md={4}>
+                                                <Paper sx={metricSx}>
+                                                    <Typography sx={metricLabelSx}>Empty cells</Typography>
+                                                    <Typography sx={metricValueSx}>{csvStats.emptyCells}</Typography>
+                                                </Paper>
+                                            </Grid>
+                                        </Grid>
+
+                                        <TableContainer component={Paper} sx={tablePanelSx}>
+                                            <Table size="small">
+                                                <TableHead>
+                                                    <TableRow>
+                                                        {(csvRows[0] || []).slice(0, 12).map((cell, index) => (
+                                                            <TableCell key={`${cell}-${index}`} sx={tableHeaderSx}>
+                                                                {cell || `Column ${index + 1}`}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {csvRows.slice(1, 80).map((row, rowIndex) => (
+                                                        <TableRow key={`row-${rowIndex}`}>
+                                                            {row.slice(0, 12).map((cell, cellIndex) => (
+                                                                <TableCell key={`cell-${rowIndex}-${cellIndex}`} sx={tableCellSx}>
+                                                                    {cell}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </>
+                                ) : (
+                                    <EmptyState text="Upload CSV, TSV, or JSON data to preview and convert it." />
+                                )}
+                            </Stack>
+                        )}
+
+                        {isImageMode && (
+                            <Stack spacing={2}>
+                                {imageUrl ? (
+                                    <Card sx={slideCardSx}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                                Uploaded image
+                                            </Typography>
+                                            <Box component="img" src={imageUrl} alt="Uploaded preview" sx={imagePreviewSx} />
+                                            <Typography sx={{ color: "rgba(255,255,255,.66)", mt: 1 }}>
+                                                Original size: {formatBytes(file?.size || 0)}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                ) : (
+                                    <EmptyState text="Upload an image to convert it." />
+                                )}
+
+                                {convertedImageUrl && (
+                                    <Card sx={slideCardSx}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                                Converted JPG preview
+                                            </Typography>
+                                            <Box component="img" src={convertedImageUrl} alt="Converted preview" sx={imagePreviewSx} />
+                                            <Typography sx={{ color: "rgba(255,255,255,.66)", mt: 1 }}>
+                                                Converted size: {formatBytes(convertedImageBlob?.size || 0)}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </Stack>
+                        )}
+
+                        {isAudioMode && (
+                            <Stack spacing={2}>
+                                {mediaUrl ? (
+                                    <Card sx={slideCardSx}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                                Original media
+                                            </Typography>
+                                            <Box component="audio" src={mediaUrl} controls sx={{ width: "100%" }} />
+                                            <Typography sx={{ color: "rgba(255,255,255,.66)", mt: 1 }}>
+                                                Original size: {formatBytes(file?.size || 0)}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                ) : (
+                                    <EmptyState text="Upload audio or video to convert it." />
+                                )}
+
+                                {convertedMediaUrl && (
+                                    <Card sx={slideCardSx}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                                Converted audio preview
+                                            </Typography>
+                                            <Box component="audio" src={convertedMediaUrl} controls sx={{ width: "100%" }} />
+                                            <Typography sx={{ color: "rgba(255,255,255,.66)", mt: 1 }}>
+                                                Converted size: {formatBytes(convertedMediaBlob?.size || 0)}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </Stack>
+                        )}
+
+                        {isVideoMode && (
+                            <Stack spacing={2}>
+                                {videoUrl ? (
+                                    <Card sx={slideCardSx}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                                Original video
+                                            </Typography>
+                                            <Box component="video" src={videoUrl} controls sx={videoPreviewSx} />
+                                        </CardContent>
+                                    </Card>
+                                ) : (
+                                    <EmptyState text="Upload a video to compress it." />
+                                )}
+
+                                {compressedVideoUrl && (
+                                    <Card sx={slideCardSx}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                                                Compressed video
+                                            </Typography>
+                                            <Box component="video" src={compressedVideoUrl} controls sx={videoPreviewSx} />
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </Stack>
+                        )}
+
+                        {isZipMode && (
+                            <Paper sx={previewPanelSx}>
+                                {zipStats ? (
+                                    <Stack spacing={2}>
+                                        <Typography variant="h5" sx={{ fontWeight: 950 }}>
+                                            ZIP Summary
+                                        </Typography>
+                                        <Typography sx={{ color: "rgba(255,255,255,.72)" }}>
+                                            Files: {zipStats.fileCount}
+                                        </Typography>
+                                        <Typography sx={{ color: "rgba(255,255,255,.72)" }}>
+                                            Junk files detected: {zipStats.junkCount}
+                                        </Typography>
+                                        <Typography sx={{ color: "rgba(255,255,255,.72)" }}>
+                                            Original size: {formatBytes(zipStats.originalSize)}
+                                        </Typography>
+                                    </Stack>
+                                ) : (
+                                    <EmptyState text="Upload a ZIP file to optimize it." />
+                                )}
+                            </Paper>
+                        )}
+
+                        {isTemperatureMode && (
+                            <Card sx={slideCardSx}>
+                                <CardContent>
+                                    <Typography variant="h5" sx={{ fontWeight: 950, mb: 2 }}>
+                                        {preset.temperatureDirection === "fToC"
+                                            ? "Fahrenheit to Celsius"
+                                            : "Celsius to Fahrenheit"}
                                     </Typography>
 
-                                    <Typography sx={{ color: "rgba(255,255,255,.65)", mb: 2 }}>
-                                        Use a mouse, touch screen, stylus, or USB drawing tablet. After
-                                        drawing, the signature appears on top of the PDF preview. Drag the
-                                        signature to move it, use the corner handle to resize it, or adjust
-                                        X/Y/width from the side controls.
+                                    <Typography sx={{ color: "rgba(255,255,255,.72)", mb: 2 }}>
+                                        Enter a temperature value and convert it instantly in the browser.
                                     </Typography>
 
-                                    <Box
-                                        sx={{
-                                            background: "white",
-                                            borderRadius: 3,
-                                            overflow: "hidden",
-                                            border: "1px solid rgba(255,255,255,.16)",
-                                            touchAction: "none",
-                                        }}
-                                    >
-                                        <canvas
-                                            ref={signatureCanvasRef}
-                                            width={900}
-                                            height={260}
-                                            onPointerDown={startSignature}
-                                            onPointerMove={drawSignature}
-                                            onPointerUp={stopSignature}
-                                            onPointerLeave={stopSignature}
-                                            style={{
-                                                width: "100%",
-                                                height: 260,
-                                                display: "block",
-                                                cursor: "crosshair",
-                                            }}
+                                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                                        <TextField
+                                            fullWidth
+                                            label={preset.temperatureDirection === "fToC" ? "Fahrenheit" : "Celsius"}
+                                            value={temperatureInput}
+                                            onChange={(event) => setTemperatureInput(event.target.value)}
+                                            sx={textFieldSx}
                                         />
-                                    </Box>
-                                </Box>
-                            )}
-                        </Paper>
+
+                                        <Button onClick={convertTemperatureNow} sx={primaryButtonSx}>
+                                            Convert
+                                        </Button>
+                                    </Stack>
+
+                                    {temperatureOutput && (
+                                        <Typography
+                                            sx={{
+                                                mt: 3,
+                                                color: "#9ee8ff",
+                                                fontSize: { xs: 34, md: 52 },
+                                                fontWeight: 950,
+                                            }}
+                                        >
+                                            {temperatureOutput}°{preset.temperatureDirection === "fToC" ? "C" : "F"}
+                                        </Typography>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
                     </Grid>
                 </Grid>
             </Container>
@@ -2935,55 +3311,17 @@ function FocusedOfficeTool({ preset }) {
     );
 }
 
-function EmptyState({ text }) {
-    return (
-        <Stack
-            spacing={2}
-            alignItems="center"
-            justifyContent="center"
-            sx={{ minHeight: 380, textAlign: "center" }}
-        >
-            <VisibilityRoundedIcon sx={{ fontSize: 70, color: "#9ee8ff" }} />
-            <Typography variant="h5" sx={{ fontWeight: 950 }}>
-                Select a file to begin
-            </Typography>
-            <Typography sx={{ color: "rgba(255,255,255,.68)", maxWidth: 520 }}>
-                {text}
-            </Typography>
-        </Stack>
-    );
-}
-
 const pillSx = {
     width: "fit-content",
-    color: "#dff8ff",
+    color: "#06101c",
+    background: "linear-gradient(135deg,#9ee8ff,#b38cff)",
     fontWeight: 950,
-    border: "1px solid rgba(158,232,255,.25)",
-    background: "rgba(158,232,255,.08)",
-    "& .MuiChip-icon": {
-        color: "#9ee8ff",
-    },
-};
-
-const toolCardSx = {
-    height: "100%",
-    textDecoration: "none",
-    color: "white",
-    background: "rgba(255,255,255,.06)",
-    border: "1px solid rgba(255,255,255,.12)",
-    backdropFilter: "blur(18px)",
-    boxShadow: "0 24px 70px rgba(0,0,0,.28)",
-    transition: "transform 180ms ease, border-color 180ms ease",
-    "&:hover": {
-        transform: "translateY(-4px)",
-        borderColor: "rgba(158,232,255,.38)",
-    },
 };
 
 const iconBoxSx = {
-    width: 54,
-    height: 54,
-    borderRadius: "18px",
+    width: 48,
+    height: 48,
+    borderRadius: 3,
     display: "grid",
     placeItems: "center",
     color: "#9ee8ff",
@@ -2991,112 +3329,202 @@ const iconBoxSx = {
     border: "1px solid rgba(158,232,255,.18)",
 };
 
+const toolCardSx = {
+    height: "100%",
+    textDecoration: "none",
+    color: "inherit",
+    background:
+        "linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035))",
+    border: "1px solid rgba(255,255,255,.1)",
+    borderRadius: 4,
+    transition: "transform .18s ease, border-color .18s ease",
+    "&:hover": {
+        transform: "translateY(-4px)",
+        borderColor: "rgba(158,232,255,.45)",
+    },
+};
+
 const sidePanelSx = {
     p: 2,
-    background: "rgba(255,255,255,.06)",
-    border: "1px solid rgba(255,255,255,.12)",
-    backdropFilter: "blur(18px)",
+    borderRadius: 4,
+    background: "rgba(10,16,32,.82)",
+    border: "1px solid rgba(255,255,255,.1)",
     position: { lg: "sticky" },
-    top: 94,
+    top: 18,
 };
 
 const previewPanelSx = {
-    minHeight: "76vh",
     p: 2,
-    background: "rgba(255,255,255,.055)",
-    border: "1px solid rgba(255,255,255,.12)",
-    backdropFilter: "blur(18px)",
+    minHeight: 520,
+    borderRadius: 4,
+    background: "rgba(10,16,32,.65)",
+    border: "1px solid rgba(255,255,255,.1)",
     overflow: "hidden",
 };
 
-const canvasWrapSx = {
-    minHeight: "70vh",
-    overflow: "auto",
-    display: "grid",
-    placeItems: "start center",
-    background:
-        "linear-gradient(45deg, rgba(255,255,255,.045) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.045) 25%, transparent 25%)",
-    backgroundSize: "26px 26px",
-    borderRadius: 3,
-    p: 2,
+const primaryButtonSx = {
+    color: "#06101c",
+    fontWeight: 950,
+    background: "linear-gradient(135deg,#9ee8ff,#b38cff)",
+    "&:hover": {
+        background: "linear-gradient(135deg,#b7f0ff,#c9b2ff)",
+    },
 };
 
-const documentPreviewSx = {
-    minHeight: "70vh",
-    maxWidth: 900,
-    mx: "auto",
-    p: { xs: 3, md: 6 },
+const smallButtonSx = {
+    color: "#e8f8ff",
+    border: "1px solid rgba(158,232,255,.26)",
+    background: "rgba(158,232,255,.08)",
+    "&:hover": {
+        background: "rgba(158,232,255,.14)",
+    },
+};
+
+const statusSx = {
+    p: 1.5,
+    borderRadius: 3,
+    background: "rgba(255,255,255,.055)",
+    border: "1px solid rgba(255,255,255,.08)",
+};
+
+const dividerSx = {
+    borderColor: "rgba(255,255,255,.12)",
+};
+
+const labelSx = {
+    color: "rgba(255,255,255,.72)",
+    fontWeight: 850,
+    fontSize: 13,
+};
+
+const selectSx = {
+    color: "white",
+    ".MuiOutlinedInput-notchedOutline": {
+        borderColor: "rgba(255,255,255,.18)",
+    },
+    ".MuiSvgIcon-root": {
+        color: "white",
+    },
+};
+
+const textFieldSx = {
+    "& .MuiInputBase-root": {
+        color: "white",
+    },
+    "& .MuiInputLabel-root": {
+        color: "rgba(255,255,255,.62)",
+    },
+    "& .MuiOutlinedInput-notchedOutline": {
+        borderColor: "rgba(255,255,255,.18)",
+    },
+};
+
+const pdfScrollSx = {
+    overflow: "auto",
+    maxHeight: "78vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    p: 2,
+    background: "rgba(0,0,0,.24)",
+    borderRadius: 3,
+};
+
+const docPreviewSx = {
     background: "white",
     color: "#111827",
-    borderRadius: 2,
-    lineHeight: 1.7,
-    boxShadow: "0 24px 80px rgba(0,0,0,.28)",
+    borderRadius: 3,
+    p: { xs: 2, md: 5 },
+    minHeight: 520,
     "& table": {
         borderCollapse: "collapse",
         width: "100%",
-        my: 2,
     },
     "& td, & th": {
         border: "1px solid #9ca3af",
         p: 1,
     },
+    "& p": {
+        lineHeight: 1.7,
+    },
+};
+
+const emptyStateSx = {
+    p: 4,
+    borderRadius: 4,
+    minHeight: 300,
+    display: "grid",
+    placeItems: "center",
+    textAlign: "center",
+    background: "rgba(255,255,255,.05)",
+    border: "1px dashed rgba(255,255,255,.16)",
 };
 
 const slideCardSx = {
+    borderRadius: 4,
+    background: "rgba(10,16,32,.72)",
+    border: "1px solid rgba(255,255,255,.1)",
+};
+
+const metricSx = {
+    p: 2,
+    borderRadius: 4,
     background: "rgba(255,255,255,.06)",
-    color: "white",
-    border: "1px solid rgba(255,255,255,.12)",
+    border: "1px solid rgba(255,255,255,.1)",
 };
 
-const primaryButtonSx = {
-    color: "#061019",
-    fontWeight: 950,
-    background: "linear-gradient(135deg, #9ee8ff 0%, #b38cff 100%)",
-    "&:hover": {
-        background: "linear-gradient(135deg, #c8f4ff 0%, #cbb2ff 100%)",
-    },
-    "&.Mui-disabled": {
-        color: "rgba(6,16,25,.5)",
-        opacity: 0.6,
-    },
-};
-
-const smallButtonSx = {
-    color: "white",
-    border: "1px solid rgba(255,255,255,.16)",
-    justifyContent: "flex-start",
+const metricLabelSx = {
+    color: "rgba(255,255,255,.58)",
+    fontSize: 13,
     fontWeight: 850,
 };
 
-const selectSx = {
-    color: "white",
-    background: "rgba(0,0,0,.22)",
-    "& .MuiOutlinedInput-notchedOutline": {
-        borderColor: "rgba(255,255,255,.16)",
-    },
-    "& .MuiSvgIcon-root": {
-        color: "#9ee8ff",
-    },
+const metricValueSx = {
+    color: "#9ee8ff",
+    fontSize: 34,
+    fontWeight: 950,
 };
 
-const textFieldSx = {
-    "& .MuiInputLabel-root": {
-        color: "rgba(255,255,255,.65)",
-    },
-    "& .MuiInputLabel-root.Mui-focused": {
-        color: "#9ee8ff",
-    },
-    "& .MuiOutlinedInput-root": {
-        color: "white",
-        background: "rgba(0,0,0,.22)",
-        "& fieldset": {
-            borderColor: "rgba(255,255,255,.16)",
-        },
-        "&:hover fieldset": {
-            borderColor: "rgba(158,232,255,.35)",
-        },
-        "&.Mui-focused fieldset": {
-            borderColor: "#9ee8ff",
-        },
-    },
+const tablePanelSx = {
+    borderRadius: 4,
+    background: "rgba(10,16,32,.72)",
+    border: "1px solid rgba(255,255,255,.1)",
+    maxHeight: 620,
+};
+
+const tableHeaderSx = {
+    color: "#9ee8ff",
+    fontWeight: 950,
+    background: "rgba(158,232,255,.08)",
+    borderColor: "rgba(255,255,255,.08)",
+};
+
+const tableCellSx = {
+    color: "rgba(255,255,255,.74)",
+    borderColor: "rgba(255,255,255,.08)",
+};
+
+const imagePreviewSx = {
+    width: "100%",
+    maxHeight: 560,
+    objectFit: "contain",
+    borderRadius: 3,
+    background: "rgba(255,255,255,.06)",
+};
+
+const videoPreviewSx = {
+    width: "100%",
+    maxHeight: 560,
+    borderRadius: 3,
+    background: "black",
+};
+
+const signatureCanvasSx = {
+    width: "100%",
+    height: 120,
+    borderRadius: 3,
+    background: "white",
+    border: "1px solid rgba(255,255,255,.16)",
+    touchAction: "none",
+    cursor: "crosshair",
 };
