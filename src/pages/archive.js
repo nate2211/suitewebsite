@@ -39,9 +39,9 @@ const ARCHIVE_SEARCH_BATCH_SIZE = 100;
 const ARCHIVE_VISIBLE_RESULT_BATCH_SIZE = 12;
 const ARCHIVE_INITIAL_VISIBLE_FILES_PER_ITEM = 6;
 const ARCHIVE_FILE_BATCH_SIZE = 12;
-const ARCHIVE_BROWSER_STORAGE_KEY = "officesuitelab.archive.browser.session.v1";
+const ARCHIVE_BROWSER_STORAGE_KEY = "suiteofficelab.archive.browser.session.v1";
 const SCRAPEWEBSITE_ARCHIVE_PROXY_URL = "https://scrapewebsite.pages.dev/api/archiveproxy";
-const ARCHIVE_PROXY_STORAGE_KEY = "officesuitelab.archive.useProxy.v1";
+const ARCHIVE_PROXY_STORAGE_KEY = "suiteofficelab.archive.useProxy.v1";
 
 const GLASS_CARD_SX = {
     border: "1px solid rgba(255,255,255,.12)",
