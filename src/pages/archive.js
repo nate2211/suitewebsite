@@ -39,7 +39,12 @@ const ARCHIVE_VISIBLE_RESULT_BATCH_SIZE = 12;
 const ARCHIVE_INITIAL_VISIBLE_FILES_PER_ITEM = 6;
 const ARCHIVE_FILE_BATCH_SIZE = 12;
 const ARCHIVE_BROWSER_STORAGE_KEY = "suiteofficelab.archive.browser.session.v1";
-const SCRAPEWEBSITE_ARCHIVE_PROXY_URL = "https://scrapewebsite.pages.dev/api/archiveproxy";
+const SCRAPEWEBSITE_ARCHIVE_PROXY_URL = "/api/archiveproxy";
+const SCRAPEWEBSITE_ARCHIVE_PROXY_FALLBACK_URL = "https://scrapewebsite.pages.dev/api/archiveproxy";
+const ARCHIVE_PROXY_ENDPOINTS = [
+    SCRAPEWEBSITE_ARCHIVE_PROXY_URL,
+    SCRAPEWEBSITE_ARCHIVE_PROXY_FALLBACK_URL,
+];
 
 const GLASS_CARD_SX = {
     border: "1px solid rgba(255,255,255,.12)",
@@ -57,6 +62,7 @@ const SOFT_CARD_SX = {
 
 const DOCUMENT_EXTENSIONS = [
     ".pdf",
+    ".lcpdf",
     ".doc",
     ".docx",
     ".rtf",
@@ -413,6 +419,22 @@ function buildDownloadUrl(identifier, fileName) {
     return `https://archive.org/download/${encodeURIComponent(identifier)}/${encodeArchivePath(fileName)}`;
 }
 
+function buildServeUrl(identifier, fileName) {
+    return `https://archive.org/serve/${encodeURIComponent(identifier)}/${encodeArchivePath(fileName)}`;
+}
+
+function buildIaItemUrl(hostname, identifier, fileName, dir = "") {
+    const host = String(hostname || "").trim().toLowerCase();
+    if (!/^ia\d+\.us\.archive\.org$/.test(host)) return "";
+
+    const cleanDir = String(dir || "").trim();
+    const pathPrefix = cleanDir && cleanDir.includes("/items/")
+        ? cleanDir.replace(/\/+$/g, "")
+        : `/items/${encodeURIComponent(identifier)}`;
+
+    return `https://${host}${pathPrefix}/${encodeArchivePath(fileName)}`;
+}
+
 function buildDetailsUrl(identifier) {
     return `https://archive.org/details/${encodeURIComponent(identifier)}`;
 }
@@ -431,9 +453,7 @@ function isArchiveHost(host = "") {
     );
 }
 
-function shouldUseArchiveProxyForUrl(url, useArchiveProxy) {
-    if (!useArchiveProxy) return false;
-
+function shouldUseArchiveProxyForUrl(url) {
     try {
         const parsedUrl = new URL(url);
         return parsedUrl.protocol === "https:" && isArchiveHost(parsedUrl.hostname);
@@ -442,25 +462,52 @@ function shouldUseArchiveProxyForUrl(url, useArchiveProxy) {
     }
 }
 
-function buildArchiveProxyUrl(url, useArchiveProxy) {
-    if (!shouldUseArchiveProxyForUrl(url, useArchiveProxy)) return url;
-    return `${SCRAPEWEBSITE_ARCHIVE_PROXY_URL}?url=${encodeURIComponent(url)}`;
+function buildArchiveProxyRequestUrl(proxyEndpoint, url) {
+    return `${proxyEndpoint}?url=${encodeURIComponent(url)}`;
+}
+
+function buildArchiveProxyUrlCandidates(url) {
+    if (!shouldUseArchiveProxyForUrl(url)) return [];
+
+    return ARCHIVE_PROXY_ENDPOINTS.map((proxyEndpoint) =>
+        buildArchiveProxyRequestUrl(proxyEndpoint, url)
+    );
+}
+
+function buildArchiveDocumentProxyUrlCandidates(url) {
+    if (!shouldUseArchiveProxyForUrl(url)) return [];
+
+    return [
+        SCRAPEWEBSITE_ARCHIVE_PROXY_FALLBACK_URL,
+        SCRAPEWEBSITE_ARCHIVE_PROXY_URL,
+    ].map((proxyEndpoint) => buildArchiveProxyRequestUrl(proxyEndpoint, url));
+}
+
+function buildArchiveProxyUrl(url) {
+    if (!shouldUseArchiveProxyForUrl(url)) return url;
+    return buildArchiveProxyUrlCandidates(url)[0] || "";
 }
 
 function buildArchiveProxyFallbackUrl(url) {
-    if (!shouldUseArchiveProxyForUrl(url, true)) return "";
-    return `${SCRAPEWEBSITE_ARCHIVE_PROXY_URL}?url=${encodeURIComponent(url)}`;
+    return buildArchiveProxyUrl(url);
 }
 
 function isArchiveProxyEndpoint(url = "") {
     try {
-        const proxyUrl = new URL(SCRAPEWEBSITE_ARCHIVE_PROXY_URL);
-        const parsedUrl = new URL(url);
+        const baseUrl =
+            typeof window !== "undefined"
+                ? window.location.origin
+                : "https://suiteofficelab.com";
+        const parsedUrl = new URL(url, baseUrl);
 
-        return (
-            parsedUrl.hostname === proxyUrl.hostname &&
-            parsedUrl.pathname === proxyUrl.pathname
-        );
+        return ARCHIVE_PROXY_ENDPOINTS.some((proxyEndpoint) => {
+            const proxyUrl = new URL(proxyEndpoint, baseUrl);
+
+            return (
+                parsedUrl.hostname === proxyUrl.hostname &&
+                parsedUrl.pathname === proxyUrl.pathname
+            );
+        });
     } catch {
         return false;
     }
@@ -885,14 +932,15 @@ function getArchiveErrorText(error) {
 }
 
 function getArchiveJsonAttempts(url) {
-    const proxyUrl = buildArchiveProxyFallbackUrl(url);
-    const attempts = proxyUrl
-        ? [
-            {
-                url: proxyUrl,
-                label: "scrapewebsite /api/archiveproxy",
-            },
-        ]
+    const proxyUrls = buildArchiveProxyUrlCandidates(url);
+    const attempts = proxyUrls.length
+        ? proxyUrls.map((proxyUrl, index) => ({
+            url: proxyUrl,
+            label:
+                index === 0
+                    ? "same-origin /api/archiveproxy"
+                    : "scrapewebsite /api/archiveproxy fallback",
+        }))
         : [
             {
                 url,
@@ -950,7 +998,7 @@ function buildArchiveRequestFailureMessage(failures = []) {
     const primaryMessage = getArchiveErrorText(primaryFailure?.error);
 
     if (proxyFailure && directFailure) {
-        return `Archive request failed through scrapewebsite /api/archiveproxy and direct Archive.org. Proxy error: ${getArchiveErrorText(proxyFailure.error)}. Direct error: ${getArchiveErrorText(directFailure.error)}.`;
+        return `Archive request failed through scrapewebsite /api/archiveproxy. Proxy error: ${getArchiveErrorText(proxyFailure.error)}.`;
     }
 
     if (proxyFailure) {
@@ -1063,6 +1111,7 @@ function getDocumentKind(file = {}) {
     const extension = getFileExtension(file.name);
     const format = String(file.format || "").toLowerCase();
 
+    if (extension === ".lcpdf") return "Protected PDF";
     if (extension === ".pdf" || format.includes("pdf")) return "PDF";
     if (extension === ".doc" || extension === ".docx" || format.includes("word")) return "Word";
     if (extension === ".ppt" || extension === ".pptx" || format.includes("powerpoint")) return "PowerPoint";
@@ -1085,8 +1134,44 @@ function getDocumentKind(file = {}) {
     return "Document";
 }
 
+function isEncryptedArchiveDocumentFile(name = "") {
+    const lowerName = getLowerFileName(name);
+
+    return (
+        lowerName.endsWith(".lcpdf") ||
+        lowerName.endsWith("_encrypted.pdf") ||
+        lowerName.includes("_encrypted.") ||
+        lowerName.includes("/encrypted") ||
+        lowerName.includes("lending")
+    );
+}
+
+function getArchiveDocumentAccessScore(file = {}) {
+    const lowerName = getLowerFileName(file.name);
+    const kind = getDocumentKind(file);
+    let score = 0;
+
+    if (kind === "PDF") score += 80;
+    if (kind === "Protected PDF") score -= 600;
+    if (lowerName.endsWith("_text.pdf")) score += 90;
+    if (lowerName.endsWith("_bw.pdf")) score += 70;
+    if (lowerName.endsWith(".pdf")) score += 40;
+    if (lowerName.endsWith(".lcpdf")) score -= 700;
+    if (lowerName.includes("encrypted")) score -= 500;
+    if (lowerName.includes("lock")) score -= 80;
+    if (lowerName.includes("sample")) score -= 20;
+
+    const size = Number(file.size);
+    if (Number.isFinite(size) && size > 0) {
+        if (size > 100000) score += 5;
+        if (size > 1000000) score += 5;
+    }
+
+    return score;
+}
+
 function getDocumentIcon(kind) {
-    if (kind === "PDF") return <PictureAsPdfRoundedIcon fontSize="small" />;
+    if (kind === "PDF" || kind === "Protected PDF") return <PictureAsPdfRoundedIcon fontSize="small" />;
     if (kind === "Word" || kind === "Text" || kind === "OpenDocument Text") {
         return <DescriptionRoundedIcon fontSize="small" />;
     }
@@ -1107,6 +1192,71 @@ function getFileLabel(file = {}) {
     if (file.size) pieces.push(formatSize(file.size));
 
     return pieces.filter(Boolean).join(" - ") || "document file";
+}
+
+function isInlineTextPreviewFile(file = {}) {
+    const extension = getFileExtension(file.name);
+
+    return [".txt", ".md", ".csv", ".tsv", ".rtf"].includes(extension);
+}
+
+function getExternalProxyUrlFromCandidate(value = "") {
+    const text = String(value || "").trim();
+    if (!text) return "";
+
+    try {
+        const baseUrl =
+            typeof window !== "undefined"
+                ? window.location.origin
+                : "https://suiteofficelab.com";
+        const parsedUrl = new URL(text, baseUrl);
+        const fallbackProxyUrl = new URL(SCRAPEWEBSITE_ARCHIVE_PROXY_FALLBACK_URL);
+
+        if (
+            parsedUrl.hostname === fallbackProxyUrl.hostname &&
+            parsedUrl.pathname === fallbackProxyUrl.pathname
+        ) {
+            return parsedUrl.toString();
+        }
+
+        if (parsedUrl.pathname === SCRAPEWEBSITE_ARCHIVE_PROXY_URL) {
+            const targetUrl = parsedUrl.searchParams.get("url");
+            return targetUrl
+                ? buildArchiveProxyRequestUrl(
+                    SCRAPEWEBSITE_ARCHIVE_PROXY_FALLBACK_URL,
+                    targetUrl
+                )
+                : "";
+        }
+
+        if (shouldUseArchiveProxyForUrl(parsedUrl.toString())) {
+            return buildArchiveProxyRequestUrl(
+                SCRAPEWEBSITE_ARCHIVE_PROXY_FALLBACK_URL,
+                parsedUrl.toString()
+            );
+        }
+
+        return text;
+    } catch {
+        return text;
+    }
+}
+
+function getOpenableDocumentUrl(file = {}, currentUrl = "") {
+    const candidates = [
+        currentUrl,
+        ...(Array.isArray(file.previewUrls) ? file.previewUrls : []),
+        file.proxiedDownloadUrl,
+        file.downloadUrl,
+        file.url,
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+        const externalUrl = getExternalProxyUrlFromCandidate(candidate);
+        if (externalUrl) return externalUrl;
+    }
+
+    return "";
 }
 
 function getItemCollections(item = {}, metadata = {}) {
@@ -1187,20 +1337,132 @@ function getArchiveItemImages(identifier, metadata = {}, files = []) {
     ];
 }
 
-function getDocumentFiles(identifier, files) {
+function getPublicArchivePdfNameCandidates(identifier, fileName, files = []) {
+    const candidates = [];
+    const addCandidate = (value) => {
+        const name = String(value || "").trim();
+        if (name && !candidates.includes(name)) candidates.push(name);
+    };
+    const allFiles = Array.isArray(files) ? files : [];
+    const baseName = String(fileName || "");
+
+    if (isEncryptedArchiveDocumentFile(baseName)) {
+        addCandidate(baseName.replace(/_encrypted\.pdf$/i, "_text.pdf"));
+        addCandidate(baseName.replace(/_encrypted\.pdf$/i, ".pdf"));
+        addCandidate(baseName.replace(/_encrypted\.pdf$/i, "_bw.pdf"));
+        addCandidate(baseName.replace(/\.lcpdf$/i, "_text.pdf"));
+        addCandidate(baseName.replace(/\.lcpdf$/i, ".pdf"));
+        addCandidate(baseName.replace(/\.lcpdf$/i, "_bw.pdf"));
+        addCandidate(`${identifier}_text.pdf`);
+        addCandidate(`${identifier}.pdf`);
+        addCandidate(`${identifier}_bw.pdf`);
+    }
+
+    allFiles
+        .filter((file) => file?.name)
+        .filter((file) => getDocumentKind(file) === "PDF")
+        .filter((file) => !isEncryptedArchiveDocumentFile(file.name))
+        .sort((a, b) => getArchiveDocumentAccessScore(b) - getArchiveDocumentAccessScore(a))
+        .forEach((file) => addCandidate(file.name));
+
+    addCandidate(baseName);
+
+    return candidates;
+}
+
+function getArchiveFileSourceUrlsFromNames(identifier, fileNames = [], metadataData = {}) {
+    const iaHosts = [
+        metadataData?.server,
+        metadataData?.d1,
+        metadataData?.d2,
+    ].filter(Boolean);
+    const dir = metadataData?.dir || "";
+
+    return Array.from(
+        new Set(
+            (Array.isArray(fileNames) ? fileNames : [])
+                .flatMap((candidateName) => [
+                    buildDownloadUrl(identifier, candidateName),
+                    buildServeUrl(identifier, candidateName),
+                    ...iaHosts
+                        .map((host) => buildIaItemUrl(host, identifier, candidateName, dir))
+                        .filter(Boolean),
+                ])
+                .filter(Boolean)
+        )
+    );
+}
+
+function getArchiveFileSourceUrls(identifier, fileName, files = [], metadataData = {}) {
+    return getArchiveFileSourceUrlsFromNames(
+        identifier,
+        getPublicArchivePdfNameCandidates(identifier, fileName, files),
+        metadataData
+    );
+}
+
+function getProxiedArchiveFileUrls(identifier, fileName, files = [], metadataData = {}) {
+    return Array.from(
+        new Set(
+            getArchiveFileSourceUrls(identifier, fileName, files, metadataData)
+                .flatMap((archiveUrl) => buildArchiveDocumentProxyUrlCandidates(archiveUrl))
+                .filter(Boolean)
+        )
+    );
+}
+
+function getProxiedArchiveFileUrlsFromNames(identifier, fileNames = [], metadataData = {}) {
+    return Array.from(
+        new Set(
+            getArchiveFileSourceUrlsFromNames(identifier, fileNames, metadataData)
+                .flatMap((archiveUrl) => buildArchiveDocumentProxyUrlCandidates(archiveUrl))
+                .filter(Boolean)
+        )
+    );
+}
+
+function getDocumentFiles(identifier, files, metadataData = {}) {
     const documentFiles = (Array.isArray(files) ? files : [])
         .filter((file) => file?.name)
         .filter((file) => isDocumentFile(file.name))
         .filter((file) => !isSkipFile(file.name))
         .filter((file) => !isArchiveContainerInternalPath(file.name))
-        .map((file) => {
-            const directDownloadUrl = buildDownloadUrl(identifier, file.name);
-            const proxiedDownloadUrl = buildArchiveProxyFallbackUrl(directDownloadUrl);
-            const downloadUrl = proxiedDownloadUrl || directDownloadUrl;
-            const fallbackDownloadUrl = "";
+        .flatMap((file) => {
+            const proxiedDownloadUrls = getProxiedArchiveFileUrls(identifier, file.name, files, metadataData);
+            const downloadUrl = proxiedDownloadUrls[0] || "";
             const kind = getDocumentKind(file);
+            const restricted = isEncryptedArchiveDocumentFile(file.name);
+            const rows = [];
+            const publicCandidateNames = restricted
+                ? getPublicArchivePdfNameCandidates(identifier, file.name, files)
+                    .filter((candidateName) => !isEncryptedArchiveDocumentFile(candidateName))
+                : [];
+            const publicPreviewUrls = publicCandidateNames.length
+                ? getProxiedArchiveFileUrlsFromNames(identifier, publicCandidateNames, metadataData)
+                : [];
 
-            return {
+            if (restricted && publicPreviewUrls.length) {
+                rows.push({
+                    name: publicCandidateNames[0] || `${identifier}_text.pdf`,
+                    originalProtectedName: file.name,
+                    format: "Public PDF derivative",
+                    size: file.size || "",
+                    source: "archiveproxy public derivative",
+                    kind: "PDF",
+                    extension: ".pdf",
+                    url: publicPreviewUrls[0],
+                    downloadUrl: publicPreviewUrls[0],
+                    fallbackDownloadUrl: "",
+                    proxiedDownloadUrl: publicPreviewUrls[0],
+                    previewUrls: publicPreviewUrls,
+                    proxied: true,
+                    restricted: false,
+                    protectedSourceName: file.name,
+                    syntheticPublicPreview: true,
+                });
+            }
+
+            rows.push({
                 name: file.name,
                 format: file.format || "",
                 size: file.size || "",
@@ -1209,15 +1471,25 @@ function getDocumentFiles(identifier, files) {
                 extension: getFileExtension(file.name),
                 url: downloadUrl,
                 downloadUrl,
-                fallbackDownloadUrl,
-                proxiedDownloadUrl,
-                directDownloadUrl,
-                proxied: Boolean(proxiedDownloadUrl),
-            };
-        });
+                fallbackDownloadUrl: "",
+                proxiedDownloadUrl: downloadUrl,
+                previewUrls: proxiedDownloadUrls,
+                proxied: true,
+                restricted,
+            });
+
+            return rows;
+        })
+        .filter((file) => Boolean(file.downloadUrl));
 
     return dedupeArchiveFiles(documentFiles).sort((a, b) => {
         const order = ["PDF", "Word", "PowerPoint", "Spreadsheet", "Text", "EPUB"];
+        const restrictedOrder = Number(a.restricted) - Number(b.restricted);
+        if (restrictedOrder !== 0) return restrictedOrder;
+
+        const accessScore = getArchiveDocumentAccessScore(b) - getArchiveDocumentAccessScore(a);
+        if (accessScore !== 0) return accessScore;
+
         return order.indexOf(a.kind) - order.indexOf(b.kind);
     });
 }
@@ -1271,7 +1543,7 @@ async function buildArchiveDocumentResultFromMetadata({
 
     if (!inSelectedCollection && !allowDirectUrlResult) return null;
 
-    const metadataDocumentFiles = getDocumentFiles(identifier, metadataFiles, useArchiveProxy);
+    const metadataDocumentFiles = getDocumentFiles(identifier, metadataFiles, metadataData);
     const documentFiles = forcedFiles.length
         ? dedupeArchiveFiles([...forcedFiles, ...metadataDocumentFiles])
         : metadataDocumentFiles;
@@ -1327,25 +1599,34 @@ async function loadDirectArchiveDocumentLinks({
         }
 
         if (target.type === "documentFile") {
-            const proxiedDownloadUrl = buildArchiveProxyFallbackUrl(target.downloadUrl);
-            const downloadUrl = proxiedDownloadUrl || target.downloadUrl;
-            const fallbackDownloadUrl = "";
+            const archiveFileUrls = Array.from(
+                new Set([
+                    ...getArchiveFileSourceUrls(target.identifier, target.fileName),
+                    target.downloadUrl,
+                ].filter(Boolean))
+            );
+            const proxiedDownloadUrls = archiveFileUrls
+                .flatMap((archiveUrl) => buildArchiveDocumentProxyUrlCandidates(archiveUrl))
+                .filter(Boolean);
+            const downloadUrl = proxiedDownloadUrls[0] || "";
             const kind = getDocumentKind({ name: target.fileName });
+            const restricted = isEncryptedArchiveDocumentFile(target.fileName);
+            if (!downloadUrl) continue;
 
             grouped.get(target.identifier).forcedFiles.push({
                 name: target.fileName,
                 format: "",
                 size: "",
-                source: "direct archive url",
+                source: "archiveproxy url",
                 kind,
                 extension: getFileExtension(target.fileName),
                 url: downloadUrl,
                 downloadUrl,
-                fallbackDownloadUrl,
-                proxiedDownloadUrl,
-                directDownloadUrl: target.downloadUrl,
-                originalUrl: target.originalUrl,
-                proxied: Boolean(proxiedDownloadUrl),
+                fallbackDownloadUrl: "",
+                proxiedDownloadUrl: downloadUrl,
+                previewUrls: Array.from(new Set(proxiedDownloadUrls)),
+                proxied: true,
+                restricted,
             });
         }
     }
@@ -1448,7 +1729,7 @@ async function searchArchiveDocuments({
 
             if (!itemHasSelectedCollection(item, metadata, collectionIds)) continue;
 
-            const documentFiles = getDocumentFiles(item.identifier, files, useArchiveProxy);
+            const documentFiles = getDocumentFiles(item.identifier, files, metadataData);
             if (!documentFiles.length) continue;
 
             const nextResult = {
@@ -1510,7 +1791,7 @@ function makeArchiveResultKey(item = {}) {
 }
 
 function makeArchiveFileKey(file = {}) {
-    return String(file?.downloadUrl || file?.url || file?.directDownloadUrl || file?.name || "");
+    return String(file?.proxiedDownloadUrl || file?.downloadUrl || file?.url || file?.name || "");
 }
 
 function makeArchiveImageKey(image = {}) {
@@ -1701,6 +1982,7 @@ const ArchiveDocumentPreviewFrame = React.memo(function ArchiveDocumentPreviewFr
                                                                                         file,
                                                                                         url,
                                                                                         onCopyText,
+                                                                                        onResolvedUrl,
                                                                                     }) {
     const [previewUrl, setPreviewUrl] = useState("");
     const [previewError, setPreviewError] = useState("");
@@ -1708,7 +1990,14 @@ const ArchiveDocumentPreviewFrame = React.memo(function ArchiveDocumentPreviewFr
     const [retryKey, setRetryKey] = useState(0);
 
     useEffect(() => {
-        if (!url) {
+        const candidateUrls = Array.from(
+            new Set([
+                url,
+                ...(Array.isArray(file.previewUrls) ? file.previewUrls : []),
+            ].filter(Boolean))
+        );
+
+        if (!candidateUrls.length) {
             setPreviewUrl("");
             setPreviewError("No document preview URL is available.");
             setLoadingPreview(false);
@@ -1723,42 +2012,74 @@ const ArchiveDocumentPreviewFrame = React.memo(function ArchiveDocumentPreviewFr
         setPreviewError("");
         setLoadingPreview(true);
 
-        fetch(url, {
-            method: "GET",
-            signal: controller.signal,
-            mode: "cors",
-            credentials: "omit",
-            cache: "no-store",
-            headers: {
-                Accept: "application/pdf,application/octet-stream,*/*",
-            },
-        })
-            .then(async (response) => {
-                if (!response.ok) {
-                    throw new Error(`Preview request returned HTTP ${response.status}`);
-                }
+        async function loadPreview() {
+            const errors = [];
 
-                const contentType =
-                    response.headers.get("content-type") || "application/pdf";
-                const blob = await response.blob();
+            for (const candidateUrl of candidateUrls) {
+                try {
+                    const response = await fetch(candidateUrl, {
+                        method: "GET",
+                        signal: controller.signal,
+                        mode: "cors",
+                        credentials: "omit",
+                        cache: "no-store",
+                        headers: {
+                            Accept: "application/pdf,application/octet-stream,*/*",
+                        },
+                    });
 
-                if (!blob.size) {
-                    throw new Error("Preview request returned an empty document.");
-                }
+                    if (!response.ok) {
+                        errors.push(`HTTP ${response.status}`);
+                        continue;
+                    }
 
-                const previewBlob = blob.type
-                    ? blob
-                    : blob.slice(0, blob.size, contentType);
-                objectUrl = URL.createObjectURL(previewBlob);
+                    const contentType =
+                        response.headers.get("content-type") || "application/pdf";
+                    const lowerContentType = contentType.toLowerCase();
+                    const blob = await response.blob();
 
-                if (!mounted) {
-                    URL.revokeObjectURL(objectUrl);
+                    if (!blob.size) {
+                        errors.push("empty document response");
+                        continue;
+                    }
+
+                    if (
+                        lowerContentType.includes("text/html") ||
+                        lowerContentType.includes("application/json")
+                    ) {
+                        errors.push(`non-PDF response (${contentType})`);
+                        continue;
+                    }
+
+                    const previewBlob = blob.type
+                        ? blob
+                        : blob.slice(0, blob.size, contentType);
+                    objectUrl = URL.createObjectURL(previewBlob);
+
+                    if (!mounted) {
+                        URL.revokeObjectURL(objectUrl);
+                        return;
+                    }
+
+                    if (typeof onResolvedUrl === "function") {
+                        onResolvedUrl(candidateUrl);
+                    }
+
+                    setPreviewUrl(objectUrl);
+                    setPreviewError("");
                     return;
+                } catch (error) {
+                    if (isAbortError(error)) throw error;
+                    errors.push(getArchiveErrorText(error));
                 }
+            }
 
-                setPreviewUrl(objectUrl);
-                setPreviewError("");
-            })
+            throw new Error(
+                `All ${candidateUrls.length} proxied preview route(s) failed: ${Array.from(new Set(errors)).join("; ")}`
+            );
+        }
+
+        loadPreview()
             .catch((error) => {
                 if (!mounted || isAbortError(error)) return;
 
@@ -1774,7 +2095,7 @@ const ArchiveDocumentPreviewFrame = React.memo(function ArchiveDocumentPreviewFr
             controller.abort();
             if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
-    }, [url, retryKey]);
+    }, [file.previewUrls, onResolvedUrl, retryKey, url]);
 
     return (
         <Box
@@ -1870,29 +2191,180 @@ const ArchiveDocumentPreviewFrame = React.memo(function ArchiveDocumentPreviewFr
     );
 });
 
+const ArchiveTextDocumentPreviewFrame = React.memo(function ArchiveTextDocumentPreviewFrame({
+                                                                                                file,
+                                                                                                url,
+                                                                                                onCopyText,
+                                                                                            }) {
+    const [text, setText] = useState("");
+    const [previewError, setPreviewError] = useState("");
+    const [loadingPreview, setLoadingPreview] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
+
+    useEffect(() => {
+        const candidateUrls = Array.from(
+            new Set([
+                url,
+                ...(Array.isArray(file.previewUrls) ? file.previewUrls : []),
+            ].filter(Boolean))
+        );
+
+        if (!candidateUrls.length) {
+            setText("");
+            setPreviewError("No text preview URL is available.");
+            setLoadingPreview(false);
+            return undefined;
+        }
+
+        let mounted = true;
+        const controller = new AbortController();
+
+        setText("");
+        setPreviewError("");
+        setLoadingPreview(true);
+
+        async function loadTextPreview() {
+            const errors = [];
+
+            for (const candidateUrl of candidateUrls) {
+                try {
+                    const response = await fetch(candidateUrl, {
+                        method: "GET",
+                        signal: controller.signal,
+                        mode: "cors",
+                        credentials: "omit",
+                        cache: "no-store",
+                        headers: {
+                            Accept: "text/plain,text/csv,text/markdown,text/*,*/*",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        errors.push(`HTTP ${response.status}`);
+                        continue;
+                    }
+
+                    const nextText = await response.text();
+                    if (!nextText.trim()) {
+                        errors.push("empty text response");
+                        continue;
+                    }
+
+                    if (!mounted) return;
+
+                    setText(nextText.slice(0, 120000));
+                    setPreviewError("");
+                    return;
+                } catch (error) {
+                    if (isAbortError(error)) throw error;
+                    errors.push(getArchiveErrorText(error));
+                }
+            }
+
+            throw new Error(
+                `All ${candidateUrls.length} proxied text preview route(s) failed: ${Array.from(new Set(errors)).join("; ")}`
+            );
+        }
+
+        loadTextPreview()
+            .catch((error) => {
+                if (!mounted || isAbortError(error)) return;
+
+                setText("");
+                setPreviewError(getArchiveErrorText(error));
+            })
+            .finally(() => {
+                if (mounted) setLoadingPreview(false);
+            });
+
+        return () => {
+            mounted = false;
+            controller.abort();
+        };
+    }, [file.previewUrls, retryKey, url]);
+
+    return (
+        <Box
+            sx={{
+                width: "100%",
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 2,
+                bgcolor: "rgba(0,0,0,.22)",
+                overflow: "hidden",
+            }}
+        >
+            {loadingPreview && (
+                <Stack spacing={1} alignItems="center" justifyContent="center" sx={{ minHeight: 220, p: 2 }}>
+                    <CircularProgress size={22} />
+                    <Typography variant="body2" color="text.secondary">
+                        Loading proxied text preview...
+                    </Typography>
+                </Stack>
+            )}
+
+            {!loadingPreview && previewError && (
+                <Stack spacing={1.5} sx={{ p: 2 }}>
+                    <Alert severity="warning">
+                        Could not render the text document through the Archive proxy: {previewError}.
+                    </Alert>
+
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <Button
+                            type="button"
+                            size="small"
+                            variant="contained"
+                            onClick={() => setRetryKey((current) => current + 1)}
+                        >
+                            Retry text preview
+                        </Button>
+
+                        <Button
+                            type="button"
+                            size="small"
+                            variant="text"
+                            startIcon={<ContentCopyRoundedIcon />}
+                            onClick={() => onCopyText(url)}
+                        >
+                            Copy proxy link
+                        </Button>
+                    </Stack>
+                </Stack>
+            )}
+
+            {!loadingPreview && !previewError && text && (
+                <Box
+                    component="pre"
+                    sx={{
+                        m: 0,
+                        p: 2,
+                        maxHeight: 420,
+                        overflow: "auto",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                        fontSize: 12,
+                        lineHeight: 1.55,
+                    }}
+                >
+                    {text}
+                </Box>
+            )}
+        </Box>
+    );
+});
+
 const ArchiveDocumentFileRow = React.memo(function ArchiveDocumentFileRow({
                                                                               file,
+                                                                              archiveUrl = "",
                                                                               onCopyText,
                                                                           }) {
-    const initialUrl = file.downloadUrl || file.url || file.directDownloadUrl || "";
-    const fallbackUrl =
-        file.fallbackDownloadUrl && file.fallbackDownloadUrl !== initialUrl
-            ? file.fallbackDownloadUrl
-            : "";
+    const initialUrl = file.proxiedDownloadUrl || file.downloadUrl || file.url || "";
     const [activeUrl, setActiveUrl] = useState(initialUrl);
-    const [usedFallback, setUsedFallback] = useState(false);
+    const openableUrl = getOpenableDocumentUrl(file, activeUrl);
 
     useEffect(() => {
         setActiveUrl(initialUrl);
-        setUsedFallback(false);
     }, [initialUrl]);
-
-    function switchToFallback() {
-        if (!fallbackUrl || activeUrl === fallbackUrl) return;
-
-        setActiveUrl(fallbackUrl);
-        setUsedFallback(true);
-    }
 
     return (
         <Box
@@ -1925,19 +2397,17 @@ const ArchiveDocumentFileRow = React.memo(function ArchiveDocumentFileRow({
 
                             <Typography variant="caption" color="text.secondary">
                                 {getFileLabel(file)}
-                                {file.proxied ? " - proxied" : ""}
-                                {usedFallback ? " - fallback proxy active" : ""}
+                                {" - proxied through api/archiveproxy"}
+                                {file.restricted ? " - protected source, trying public derivatives first" : ""}
                             </Typography>
                         </Box>
                     </Stack>
 
                     <Stack direction="row" spacing={1} flexWrap="wrap">
                         <Chip size="small" label={file.kind || "Document"} color="primary" />
-                        {fallbackUrl && !usedFallback && (
-                            <Chip size="small" label="proxy fallback ready" color="warning" />
-                        )}
-                        {usedFallback && (
-                            <Chip size="small" label="using proxy fallback" color="success" />
+                        <Chip size="small" label="proxy only" color="success" />
+                        {file.restricted && (
+                            <Chip size="small" label="protected source" color="warning" />
                         )}
                     </Stack>
                 </Stack>
@@ -1947,54 +2417,68 @@ const ArchiveDocumentFileRow = React.memo(function ArchiveDocumentFileRow({
                         file={file}
                         url={activeUrl}
                         onCopyText={onCopyText}
+                        onResolvedUrl={setActiveUrl}
+                    />
+                )}
+
+                {file.kind !== "PDF" && isInlineTextPreviewFile(file) && (
+                    <ArchiveTextDocumentPreviewFrame
+                        file={file}
+                        url={activeUrl}
+                        onCopyText={onCopyText}
                     />
                 )}
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                     <Button
-                        href={activeUrl}
+                        href={archiveUrl}
                         target="_blank"
                         rel="noreferrer"
                         size="small"
                         variant="outlined"
                         endIcon={<OpenInNewRoundedIcon />}
+                        disabled={!archiveUrl}
                     >
-                        Open document
+                        Open Archive.org page
                     </Button>
 
                     <Button
-                        href={activeUrl}
+                        href={openableUrl}
                         target="_blank"
                         rel="noreferrer"
-                        download
                         size="small"
                         variant="outlined"
-                        startIcon={<FileDownloadRoundedIcon />}
+                        endIcon={<OpenInNewRoundedIcon />}
+                        disabled={!openableUrl}
                     >
-                        Download
+                        Open proxied document
                     </Button>
+
+                    {!file.restricted && (
+                        <Button
+                            href={openableUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            size="small"
+                            variant="outlined"
+                            startIcon={<FileDownloadRoundedIcon />}
+                            disabled={!openableUrl}
+                        >
+                            Download
+                        </Button>
+                    )}
 
                     <Button
                         type="button"
                         size="small"
                         variant="text"
                         startIcon={<ContentCopyRoundedIcon />}
-                        onClick={() => onCopyText(activeUrl)}
+                        disabled={!openableUrl}
+                        onClick={() => onCopyText(openableUrl)}
                     >
                         Copy link
                     </Button>
-
-                    {fallbackUrl && activeUrl !== fallbackUrl && (
-                        <Button
-                            type="button"
-                            size="small"
-                            variant="contained"
-                            color="warning"
-                            onClick={switchToFallback}
-                        >
-                            Use proxy fallback
-                        </Button>
-                    )}
 
                 </Stack>
             </Stack>
@@ -2012,8 +2496,11 @@ const ArchiveDocumentResultCard = React.memo(function ArchiveDocumentResultCard(
                                                                                     onCopyText,
                                                                                 }) {
     const files = Array.isArray(item.files) ? item.files : [];
-    const visibleFiles = files.slice(0, visibleFileLimit);
-    const hiddenFileCount = Math.max(files.length - visibleFiles.length, 0);
+    const publicFiles = files.filter((file) => !file.restricted);
+    const protectedFiles = files.filter((file) => file.restricted);
+    const visibleFiles = publicFiles.slice(0, visibleFileLimit);
+    const hiddenFileCount = Math.max(publicFiles.length - visibleFiles.length, 0);
+    const [showProtectedSources, setShowProtectedSources] = useState(false);
 
     return (
         <Card
@@ -2046,7 +2533,10 @@ const ArchiveDocumentResultCard = React.memo(function ArchiveDocumentResultCard(
                             </Typography>
 
                             <Typography variant="caption" color="text.secondary">
-                                Loaded {files.length} office/document file(s) from this Archive item.
+                                Loaded {publicFiles.length} renderable office/document file(s)
+                                {protectedFiles.length
+                                    ? ` and ${protectedFiles.length} protected source file(s)`
+                                    : ""} from this Archive item.
                                 {hiddenFileCount
                                     ? ` Showing ${visibleFiles.length} right now for smoother rendering.`
                                     : ""}
@@ -2122,10 +2612,18 @@ const ArchiveDocumentResultCard = React.memo(function ArchiveDocumentResultCard(
                     <Divider />
 
                     <Stack spacing={1.5}>
+                        {!publicFiles.length && (
+                            <Alert severity="warning">
+                                No public renderable document files were found for this item yet.
+                                Protected sources are kept below in a collapsed box.
+                            </Alert>
+                        )}
+
                         {visibleFiles.map((file) => (
                             <ArchiveDocumentFileRow
-                                key={file.downloadUrl || file.url || file.name}
+                                key={file.proxiedDownloadUrl || file.downloadUrl || file.url || file.name}
                                 file={file}
+                                archiveUrl={item.detailsUrl}
                                 onCopyText={onCopyText}
                             />
                         ))}
@@ -2147,7 +2645,7 @@ const ArchiveDocumentResultCard = React.memo(function ArchiveDocumentResultCard(
                                     variant="text"
                                     onClick={() => onShowAllFiles(item.identifier)}
                                 >
-                                    Show all {files.length} files
+                                    Show all {publicFiles.length} renderable files
                                 </Button>
                             </Stack>
                         )}
@@ -2162,6 +2660,55 @@ const ArchiveDocumentResultCard = React.memo(function ArchiveDocumentResultCard(
                             >
                                 Collapse file list
                             </Button>
+                        )}
+
+                        {!!protectedFiles.length && (
+                            <Box
+                                sx={{
+                                    border: "1px solid rgba(255,193,7,.28)",
+                                    borderRadius: 2,
+                                    bgcolor: "rgba(255,193,7,.055)",
+                                    overflow: "hidden",
+                                }}
+                            >
+                                <Button
+                                    type="button"
+                                    fullWidth
+                                    color="warning"
+                                    variant={showProtectedSources ? "contained" : "outlined"}
+                                    onClick={() => setShowProtectedSources((current) => !current)}
+                                    sx={{
+                                        justifyContent: "space-between",
+                                        borderRadius: 0,
+                                        px: 1.5,
+                                    }}
+                                >
+                                    <span>
+                                        Protected sources ({protectedFiles.length}) kept collapsed
+                                        by default
+                                    </span>
+                                    <span>{showProtectedSources ? "Hide" : "Show"}</span>
+                                </Button>
+
+                                <Collapse in={showProtectedSources} timeout="auto" unmountOnExit>
+                                    <Stack spacing={1.5} sx={{ p: 1.5 }}>
+                                        <Alert severity="warning">
+                                            These are protected or encrypted Archive source files.
+                                            The main document list above tries public derivatives
+                                            first so PDFs and text documents can actually render.
+                                        </Alert>
+
+                                        {protectedFiles.map((file) => (
+                                            <ArchiveDocumentFileRow
+                                                key={file.proxiedDownloadUrl || file.downloadUrl || file.url || file.name}
+                                                file={file}
+                                                archiveUrl={item.detailsUrl}
+                                                onCopyText={onCopyText}
+                                            />
+                                        ))}
+                                    </Stack>
+                                </Collapse>
+                            </Box>
                         )}
                     </Stack>
                 </Stack>
