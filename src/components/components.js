@@ -86,7 +86,7 @@ import NavigateBeforeRoundedIcon from "@mui/icons-material/NavigateBeforeRounded
 import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import BorderColorRoundedIcon from "@mui/icons-material/BorderColorRounded";
-
+import LibraryBooksRoundedIcon from "@mui/icons-material/LibraryBooksRounded";
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export function GradientPage({ children }) {
@@ -112,6 +112,11 @@ export function AppNavBar() {
             label: "Home",
             path: "/",
             icon: <HomeRoundedIcon fontSize="small" />,
+        },
+        {
+            label: "Archive",
+            path: "/archive",
+            icon: <LibraryBooksRoundedIcon fontSize="small" />,
         },
         {
             label: "CSV",
