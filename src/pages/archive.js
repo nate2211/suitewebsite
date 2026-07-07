@@ -42,6 +42,10 @@ const ARCHIVE_FILE_BATCH_SIZE = 12;
 const ARCHIVE_BROWSER_STORAGE_KEY = "suiteofficelab.archive.browser.session.v1";
 const SCRAPEWEBSITE_ARCHIVE_PROXY_URL = "https://scrapewebsite.pages.dev/api/archiveproxy";
 const ARCHIVE_PROXY_STORAGE_KEY = "suiteofficelab.archive.useProxy.v1";
+const PRODUCTION_ARCHIVE_PROXY_HOSTS = new Set([
+    "suiteofficelab.com",
+    "www.suiteofficelab.com",
+]);
 
 const GLASS_CARD_SX = {
     border: "1px solid rgba(255,255,255,.12)",
@@ -292,12 +296,21 @@ function writeJsonStorage(key, value) {
 }
 
 function readArchiveProxySetting() {
-    if (typeof window === "undefined" || !window.localStorage) return false;
+    if (typeof window === "undefined") return false;
+
+    const defaultValue = PRODUCTION_ARCHIVE_PROXY_HOSTS.has(
+        String(window.location?.hostname || "").toLowerCase()
+    );
+
+    if (!window.localStorage) return defaultValue;
 
     try {
-        return window.localStorage.getItem(ARCHIVE_PROXY_STORAGE_KEY) === "true";
+        const saved = window.localStorage.getItem(ARCHIVE_PROXY_STORAGE_KEY);
+        if (saved === "true") return true;
+        if (saved === "false") return false;
+        return defaultValue;
     } catch {
-        return false;
+        return defaultValue;
     }
 }
 
@@ -469,6 +482,20 @@ function buildArchiveProxyUrl(url, useArchiveProxy) {
 function buildArchiveProxyFallbackUrl(url) {
     if (!shouldUseArchiveProxyForUrl(url, true)) return "";
     return `${SCRAPEWEBSITE_ARCHIVE_PROXY_URL}?url=${encodeURIComponent(url)}`;
+}
+
+function isArchiveProxyEndpoint(url = "") {
+    try {
+        const proxyUrl = new URL(SCRAPEWEBSITE_ARCHIVE_PROXY_URL);
+        const parsedUrl = new URL(url);
+
+        return (
+            parsedUrl.hostname === proxyUrl.hostname &&
+            parsedUrl.pathname === proxyUrl.pathname
+        );
+    } catch {
+        return false;
+    }
 }
 
 function stripUrlPunctuation(value) {
@@ -810,10 +837,173 @@ function buildSearchSignature(query, selectedCollections, useArchiveProxy = fals
     });
 }
 
+function parseJsonLikePayload(value) {
+    if (typeof value !== "string") return value;
+
+    const text = value.trim();
+    if (!text) return {};
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return value;
+    }
+}
+
+function isArchiveJsonPayload(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+    return Boolean(
+        value.response ||
+        value.responseHeader ||
+        value.metadata ||
+        value.files ||
+        value.server ||
+        value.dir ||
+        value.created
+    );
+}
+
+function unwrapArchiveProxyPayload(value) {
+    let current = parseJsonLikePayload(value);
+
+    for (let index = 0; index < 5; index += 1) {
+        if (isArchiveJsonPayload(current)) return current;
+        if (!current || typeof current !== "object" || Array.isArray(current)) return current;
+
+        const nextValue =
+            current.json ??
+            current.data ??
+            current.result ??
+            current.body ??
+            current.content ??
+            current.text;
+
+        if (typeof nextValue === "undefined" || nextValue === current) return current;
+
+        const parsedNextValue = parseJsonLikePayload(nextValue);
+        if (parsedNextValue === current) return current;
+        current = parsedNextValue;
+    }
+
+    return current;
+}
+
+async function readJsonResponse(response) {
+    const text = await response.text();
+    const parsed = parseJsonLikePayload(text);
+
+    if (typeof parsed === "string") {
+        throw new Error("Response was not valid JSON.");
+    }
+
+    return unwrapArchiveProxyPayload(parsed);
+}
+
+function getArchiveErrorText(error) {
+    const message = String(error?.message || "").trim();
+    const lowerMessage = message.toLowerCase();
+
+    if (
+        error?.name === "TypeError" ||
+        lowerMessage.includes("failed to fetch") ||
+        lowerMessage.includes("networkerror") ||
+        lowerMessage.includes("load failed")
+    ) {
+        return "the browser blocked the request or the network connection failed";
+    }
+
+    return message || "the request failed";
+}
+
+function getArchiveJsonAttempts(url, useArchiveProxy) {
+    const proxyUrl = buildArchiveProxyFallbackUrl(url);
+    const attempts = useArchiveProxy && proxyUrl
+        ? [
+            {
+                url: proxyUrl,
+                label: "scrapewebsite /api/archiveproxy",
+            },
+            {
+                url,
+                label: "direct Archive.org fallback",
+            },
+        ]
+        : [
+            {
+                url,
+                label: "direct Archive.org",
+            },
+            proxyUrl
+                ? {
+                    url: proxyUrl,
+                    label: "scrapewebsite /api/archiveproxy fallback",
+                }
+                : null,
+        ];
+    const seen = new Set();
+
+    return attempts.filter((attempt) => {
+        if (!attempt?.url || seen.has(attempt.url)) return false;
+        seen.add(attempt.url);
+        return true;
+    });
+}
+
+async function fetchJsonAttempt(attempt, requestOptions) {
+    let response;
+
+    try {
+        response = await fetch(attempt.url, requestOptions);
+    } catch (error) {
+        error.archiveRouteLabel = attempt.label;
+        throw error;
+    }
+
+    if (!response.ok) {
+        let extra = "";
+
+        try {
+            const data = await readJsonResponse(response);
+            extra = data?.error || data?.message || data?.statusText || "";
+        } catch {
+            extra = "";
+        }
+
+        const error = new Error(
+            `${attempt.label} returned HTTP ${response.status}${extra ? `: ${extra}` : ""}`
+        );
+        error.archiveRouteLabel = attempt.label;
+        error.status = response.status;
+        throw error;
+    }
+
+    return readJsonResponse(response);
+}
+
+function buildArchiveRequestFailureMessage(failures = []) {
+    const proxyFailure = failures.find((failure) =>
+        isArchiveProxyEndpoint(failure?.attempt?.url)
+    );
+    const directFailure = failures.find((failure) =>
+        !isArchiveProxyEndpoint(failure?.attempt?.url)
+    );
+    const primaryFailure = proxyFailure || directFailure || failures[failures.length - 1];
+    const primaryMessage = getArchiveErrorText(primaryFailure?.error);
+
+    if (proxyFailure && directFailure) {
+        return `Archive request failed through scrapewebsite /api/archiveproxy and direct Archive.org. Proxy error: ${getArchiveErrorText(proxyFailure.error)}. Direct error: ${getArchiveErrorText(directFailure.error)}.`;
+    }
+
+    if (proxyFailure) {
+        return `Archive request failed through scrapewebsite /api/archiveproxy: ${primaryMessage}.`;
+    }
+
+    return `Archive request failed: ${primaryMessage}.`;
+}
+
 async function fetchJson(url, options = {}) {
     const useArchiveProxy = Boolean(options.useArchiveProxy);
-    const requestUrl = buildArchiveProxyUrl(url, useArchiveProxy);
-    const fallbackUrl = !useArchiveProxy ? buildArchiveProxyFallbackUrl(url) : "";
     const requestOptions = {
         method: "GET",
         signal: options.signal,
@@ -821,47 +1011,19 @@ async function fetchJson(url, options = {}) {
             Accept: "application/json",
         },
     };
+    const attempts = getArchiveJsonAttempts(url, useArchiveProxy);
+    const failures = [];
 
-    let response;
-
-    try {
-        response = await fetch(requestUrl, requestOptions);
-    } catch (error) {
-        if (fallbackUrl && !isAbortError(error)) {
-            response = await fetch(fallbackUrl, requestOptions);
-        } else {
-            throw error;
-        }
-    }
-
-    if (!response.ok) {
-        if (
-            fallbackUrl &&
-            response.url !== fallbackUrl &&
-            (response.status === 401 || response.status === 403 || response.status === 404)
-        ) {
-            const fallbackResponse = await fetch(fallbackUrl, requestOptions);
-
-            if (fallbackResponse.ok) {
-                return fallbackResponse.json();
-            }
-
-            response = fallbackResponse;
-        }
-
-        let extra = "";
-
+    for (const attempt of attempts) {
         try {
-            const data = await response.json();
-            extra = data?.error ? `: ${data.error}` : "";
-        } catch {
-            extra = "";
+            return await fetchJsonAttempt(attempt, requestOptions);
+        } catch (error) {
+            if (isAbortError(error)) throw error;
+            failures.push({ attempt, error });
         }
-
-        throw new Error(`Request failed with HTTP ${response.status}${extra}`);
     }
 
-    return response.json();
+    throw new Error(buildArchiveRequestFailureMessage(failures));
 }
 
 async function searchArchiveItems(
@@ -873,9 +1035,11 @@ async function searchArchiveItems(
 ) {
     const archiveQuery = buildArchiveSearchQuery(query, selectedCollections);
     const pageNumber = getArchivePageFromCursor(cursor);
+    const startOffset = (pageNumber - 1) * ARCHIVE_SEARCH_BATCH_SIZE;
     const params = new URLSearchParams({
         q: archiveQuery,
         rows: String(ARCHIVE_SEARCH_BATCH_SIZE),
+        start: String(startOffset),
         page: String(pageNumber),
         output: "json",
     });
@@ -900,7 +1064,7 @@ async function searchArchiveItems(
     });
     const response = data?.response || {};
     const docs = Array.isArray(response.docs) ? response.docs : [];
-    const start = Number(response.start || (pageNumber - 1) * ARCHIVE_SEARCH_BATCH_SIZE);
+    const start = Number(response.start ?? startOffset);
     const numFound = Number(response.numFound || docs.length);
     const hasMorePages = start + docs.length < numFound && docs.length > 0;
 
@@ -2235,7 +2399,7 @@ export default function Archive() {
         stopActiveSearchAndKeepResults(
             enabled
                 ? "Archive proxy enabled. Press Search Archive Documents when ready."
-                : "Archive proxy disabled. Press Search Archive Documents when ready."
+                : "Archive proxy disabled for the first try. Direct Archive.org requests will still retry through the proxy if production blocks them."
         );
     }
 
@@ -2295,7 +2459,7 @@ export default function Archive() {
         );
         const archiveRouteLabel = proxyForRequest
             ? " through scrapewebsite /api/archiveproxy"
-            : " directly from Archive.org";
+            : " directly from Archive.org with scrapewebsite /api/archiveproxy fallback";
 
         if (!safeQuery) {
             setError("Type a search query first.");
@@ -2899,8 +3063,8 @@ export default function Archive() {
 
                                 <Alert severity={useArchiveProxy ? "warning" : "info"}>
                                     {useArchiveProxy
-                                        ? `Proxy mode is on. Search JSON, metadata JSON, thumbnail images, PDF preview URLs, and document download URLs route through ${SCRAPEWEBSITE_ARCHIVE_PROXY_URL}. This can help with CORS and Archive links that fail directly, but it may be slower.`
-                                        : "Proxy mode is off. Search JSON, metadata JSON, thumbnails, PDF previews, and document links use Archive.org directly."}
+                                        ? `Proxy mode is on. Search JSON, metadata JSON, thumbnail images, PDF preview URLs, and document download URLs route through ${SCRAPEWEBSITE_ARCHIVE_PROXY_URL}. SuiteOfficeLab production defaults to this route so Archive CORS blocks do not surface as failed fetches.`
+                                        : "Proxy mode is off for the first attempt. Search JSON and metadata use Archive.org directly, then automatically retry through scrapewebsite /api/archiveproxy if production blocks the direct request."}
                                 </Alert>
                             </Stack>
                         </CardContent>
