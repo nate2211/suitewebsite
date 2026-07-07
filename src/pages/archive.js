@@ -14,7 +14,6 @@ import {
     Grid,
     IconButton,
     Stack,
-    Switch,
     TextField,
     Tooltip,
     Typography,
@@ -41,11 +40,6 @@ const ARCHIVE_INITIAL_VISIBLE_FILES_PER_ITEM = 6;
 const ARCHIVE_FILE_BATCH_SIZE = 12;
 const ARCHIVE_BROWSER_STORAGE_KEY = "suiteofficelab.archive.browser.session.v1";
 const SCRAPEWEBSITE_ARCHIVE_PROXY_URL = "https://scrapewebsite.pages.dev/api/archiveproxy";
-const ARCHIVE_PROXY_STORAGE_KEY = "suiteofficelab.archive.useProxy.v1";
-const PRODUCTION_ARCHIVE_PROXY_HOSTS = new Set([
-    "suiteofficelab.com",
-    "www.suiteofficelab.com",
-]);
 
 const GLASS_CARD_SX = {
     border: "1px solid rgba(255,255,255,.12)",
@@ -296,33 +290,7 @@ function writeJsonStorage(key, value) {
 }
 
 function readArchiveProxySetting() {
-    if (typeof window === "undefined") return false;
-
-    const defaultValue = PRODUCTION_ARCHIVE_PROXY_HOSTS.has(
-        String(window.location?.hostname || "").toLowerCase()
-    );
-
-    if (!window.localStorage) return defaultValue;
-
-    try {
-        const saved = window.localStorage.getItem(ARCHIVE_PROXY_STORAGE_KEY);
-        if (saved === "true") return true;
-        if (saved === "false") return false;
-        return defaultValue;
-    } catch {
-        return defaultValue;
-    }
-}
-
-function writeArchiveProxySetting(value) {
-    if (typeof window === "undefined" || !window.localStorage) return false;
-
-    try {
-        window.localStorage.setItem(ARCHIVE_PROXY_STORAGE_KEY, value ? "true" : "false");
-        return true;
-    } catch {
-        return false;
-    }
+    return true;
 }
 
 function makeArchivePageCursor(pageNumber) {
@@ -829,11 +797,11 @@ function buildArchiveSearchQuery(query, selectedCollections) {
         .join(" AND ");
 }
 
-function buildSearchSignature(query, selectedCollections, useArchiveProxy = false) {
+function buildSearchSignature(query, selectedCollections) {
     return JSON.stringify({
         query: getSterileArchiveQuery(query),
         collections: normalizeCollectionIds(selectedCollections).sort(),
-        useArchiveProxy: Boolean(useArchiveProxy),
+        useArchiveProxy: true,
     });
 }
 
@@ -916,30 +884,20 @@ function getArchiveErrorText(error) {
     return message || "the request failed";
 }
 
-function getArchiveJsonAttempts(url, useArchiveProxy) {
+function getArchiveJsonAttempts(url) {
     const proxyUrl = buildArchiveProxyFallbackUrl(url);
-    const attempts = useArchiveProxy && proxyUrl
+    const attempts = proxyUrl
         ? [
             {
                 url: proxyUrl,
                 label: "scrapewebsite /api/archiveproxy",
             },
-            {
-                url,
-                label: "direct Archive.org fallback",
-            },
         ]
         : [
             {
                 url,
-                label: "direct Archive.org",
+                label: "request",
             },
-            proxyUrl
-                ? {
-                    url: proxyUrl,
-                    label: "scrapewebsite /api/archiveproxy fallback",
-                }
-                : null,
         ];
     const seen = new Set();
 
@@ -1003,15 +961,16 @@ function buildArchiveRequestFailureMessage(failures = []) {
 }
 
 async function fetchJson(url, options = {}) {
-    const useArchiveProxy = Boolean(options.useArchiveProxy);
     const requestOptions = {
         method: "GET",
         signal: options.signal,
+        mode: "cors",
+        credentials: "omit",
         headers: {
             Accept: "application/json",
         },
     };
-    const attempts = getArchiveJsonAttempts(url, useArchiveProxy);
+    const attempts = getArchiveJsonAttempts(url);
     const failures = [];
 
     for (const attempt of attempts) {
@@ -1031,7 +990,7 @@ async function searchArchiveItems(
     selectedCollections,
     cursor = "",
     signal,
-    useArchiveProxy = false
+    useArchiveProxy = true
 ) {
     const archiveQuery = buildArchiveSearchQuery(query, selectedCollections);
     const pageNumber = getArchivePageFromCursor(cursor);
@@ -1080,10 +1039,10 @@ async function searchArchiveItems(
     };
 }
 
-async function fetchArchiveMetadata(identifier, signal, useArchiveProxy = false) {
+async function fetchArchiveMetadata(identifier, signal) {
     return fetchJson(`https://archive.org/metadata/${encodeURIComponent(identifier)}`, {
         signal,
-        useArchiveProxy,
+        useArchiveProxy: true,
     });
 }
 
@@ -1189,7 +1148,7 @@ function getArchiveImageScore(file = {}) {
     return score;
 }
 
-function getArchiveItemImages(identifier, metadata = {}, files = [], useArchiveProxy = false) {
+function getArchiveItemImages(identifier, metadata = {}, files = []) {
     const title = metadata.title || identifier || "Archive item";
     const metadataImages = (Array.isArray(files) ? files : [])
         .filter((file) => file?.name)
@@ -1197,7 +1156,7 @@ function getArchiveItemImages(identifier, metadata = {}, files = [], useArchiveP
         .filter((file) => !isArchiveContainerInternalPath(file.name))
         .map((file) => {
             const directUrl = buildDownloadUrl(identifier, file.name);
-            const imageUrl = buildArchiveProxyUrl(directUrl, useArchiveProxy);
+            const imageUrl = buildArchiveProxyUrl(directUrl, true);
 
             return {
                 name: file.name,
@@ -1205,7 +1164,7 @@ function getArchiveItemImages(identifier, metadata = {}, files = [], useArchiveP
                 imageUrl,
                 directUrl,
                 alt: `${title} Archive thumbnail`,
-                proxied: Boolean(useArchiveProxy),
+                proxied: true,
                 score: getArchiveImageScore(file),
             };
         })
@@ -1218,17 +1177,17 @@ function getArchiveItemImages(identifier, metadata = {}, files = [], useArchiveP
     return [
         {
             name: "Archive item thumbnail",
-            url: buildArchiveProxyUrl(serviceImageUrl, useArchiveProxy),
-            imageUrl: buildArchiveProxyUrl(serviceImageUrl, useArchiveProxy),
+            url: buildArchiveProxyUrl(serviceImageUrl, true),
+            imageUrl: buildArchiveProxyUrl(serviceImageUrl, true),
             directUrl: serviceImageUrl,
             alt: `${title} Archive thumbnail`,
-            proxied: Boolean(useArchiveProxy),
+            proxied: true,
             score: 1,
         },
     ];
 }
 
-function getDocumentFiles(identifier, files, useArchiveProxy = false) {
+function getDocumentFiles(identifier, files) {
     const documentFiles = (Array.isArray(files) ? files : [])
         .filter((file) => file?.name)
         .filter((file) => isDocumentFile(file.name))
@@ -1237,12 +1196,8 @@ function getDocumentFiles(identifier, files, useArchiveProxy = false) {
         .map((file) => {
             const directDownloadUrl = buildDownloadUrl(identifier, file.name);
             const proxiedDownloadUrl = buildArchiveProxyFallbackUrl(directDownloadUrl);
-            const downloadUrl = useArchiveProxy
-                ? proxiedDownloadUrl || directDownloadUrl
-                : directDownloadUrl;
-            const fallbackDownloadUrl = useArchiveProxy
-                ? directDownloadUrl
-                : proxiedDownloadUrl;
+            const downloadUrl = proxiedDownloadUrl || directDownloadUrl;
+            const fallbackDownloadUrl = "";
             const kind = getDocumentKind(file);
 
             return {
@@ -1257,7 +1212,7 @@ function getDocumentFiles(identifier, files, useArchiveProxy = false) {
                 fallbackDownloadUrl,
                 proxiedDownloadUrl,
                 directDownloadUrl,
-                proxied: Boolean(useArchiveProxy),
+                proxied: Boolean(proxiedDownloadUrl),
             };
         });
 
@@ -1373,12 +1328,8 @@ async function loadDirectArchiveDocumentLinks({
 
         if (target.type === "documentFile") {
             const proxiedDownloadUrl = buildArchiveProxyFallbackUrl(target.downloadUrl);
-            const downloadUrl = useArchiveProxy
-                ? proxiedDownloadUrl || target.downloadUrl
-                : target.downloadUrl;
-            const fallbackDownloadUrl = useArchiveProxy
-                ? target.downloadUrl
-                : proxiedDownloadUrl;
+            const downloadUrl = proxiedDownloadUrl || target.downloadUrl;
+            const fallbackDownloadUrl = "";
             const kind = getDocumentKind({ name: target.fileName });
 
             grouped.get(target.identifier).forcedFiles.push({
@@ -1394,7 +1345,7 @@ async function loadDirectArchiveDocumentLinks({
                 proxiedDownloadUrl,
                 directDownloadUrl: target.downloadUrl,
                 originalUrl: target.originalUrl,
-                proxied: Boolean(useArchiveProxy),
+                proxied: Boolean(proxiedDownloadUrl),
             });
         }
     }
@@ -1680,7 +1631,7 @@ function sanitizeSavedSession(value) {
     const nextSelectedCollections = selectedCollections.length
         ? selectedCollections
         : fallback.selectedCollections;
-    const nextUseArchiveProxy = Boolean(parsed.useArchiveProxy);
+    const nextUseArchiveProxy = true;
     const nextSignature = buildSearchSignature(
         nextQuery,
         nextSelectedCollections,
@@ -1709,7 +1660,7 @@ function sanitizeSavedSession(value) {
                     ? normalizeCollectionIds(lastSubmittedSearch.selectedCollections)
                     : nextSelectedCollections,
             useArchiveProxy: savedSignatureIsCurrent
-                ? Boolean(lastSubmittedSearch.useArchiveProxy)
+                ? true
                 : nextUseArchiveProxy,
             cursor: "",
             signature: savedSignatureIsCurrent ? savedSubmittedSignature : "",
@@ -1745,6 +1696,179 @@ function clearBrowserSession() {
         return false;
     }
 }
+
+const ArchiveDocumentPreviewFrame = React.memo(function ArchiveDocumentPreviewFrame({
+                                                                                        file,
+                                                                                        url,
+                                                                                        onCopyText,
+                                                                                    }) {
+    const [previewUrl, setPreviewUrl] = useState("");
+    const [previewError, setPreviewError] = useState("");
+    const [loadingPreview, setLoadingPreview] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
+
+    useEffect(() => {
+        if (!url) {
+            setPreviewUrl("");
+            setPreviewError("No document preview URL is available.");
+            setLoadingPreview(false);
+            return undefined;
+        }
+
+        let mounted = true;
+        let objectUrl = "";
+        const controller = new AbortController();
+
+        setPreviewUrl("");
+        setPreviewError("");
+        setLoadingPreview(true);
+
+        fetch(url, {
+            method: "GET",
+            signal: controller.signal,
+            mode: "cors",
+            credentials: "omit",
+            cache: "no-store",
+            headers: {
+                Accept: "application/pdf,application/octet-stream,*/*",
+            },
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    throw new Error(`Preview request returned HTTP ${response.status}`);
+                }
+
+                const contentType =
+                    response.headers.get("content-type") || "application/pdf";
+                const blob = await response.blob();
+
+                if (!blob.size) {
+                    throw new Error("Preview request returned an empty document.");
+                }
+
+                const previewBlob = blob.type
+                    ? blob
+                    : blob.slice(0, blob.size, contentType);
+                objectUrl = URL.createObjectURL(previewBlob);
+
+                if (!mounted) {
+                    URL.revokeObjectURL(objectUrl);
+                    return;
+                }
+
+                setPreviewUrl(objectUrl);
+                setPreviewError("");
+            })
+            .catch((error) => {
+                if (!mounted || isAbortError(error)) return;
+
+                setPreviewUrl("");
+                setPreviewError(getArchiveErrorText(error));
+            })
+            .finally(() => {
+                if (mounted) setLoadingPreview(false);
+            });
+
+        return () => {
+            mounted = false;
+            controller.abort();
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [url, retryKey]);
+
+    return (
+        <Box
+            sx={{
+                width: "100%",
+                minHeight: { xs: 280, md: 420 },
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 2,
+                bgcolor: "rgba(0,0,0,.22)",
+                overflow: "hidden",
+            }}
+        >
+            {loadingPreview && (
+                <Stack
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ minHeight: { xs: 280, md: 420 }, p: 2 }}
+                >
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" color="text.secondary">
+                        Loading proxied document preview...
+                    </Typography>
+                </Stack>
+            )}
+
+            {!loadingPreview && previewError && (
+                <Stack spacing={1.5} sx={{ minHeight: { xs: 280, md: 420 }, p: 2 }}>
+                    <Alert severity="warning">
+                        Could not render the custom document frame through the Archive proxy:
+                        {" "}
+                        {previewError}. The browser reload screen is hidden so it cannot refresh
+                        the page.
+                    </Alert>
+
+                    <Typography variant="body2" color="text.secondary">
+                        File: {file.name}
+                    </Typography>
+
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <Button
+                            type="button"
+                            size="small"
+                            variant="contained"
+                            onClick={() => setRetryKey((current) => current + 1)}
+                        >
+                            Retry custom preview
+                        </Button>
+
+                        <Button
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            size="small"
+                            variant="outlined"
+                            endIcon={<OpenInNewRoundedIcon />}
+                        >
+                            Open proxied document
+                        </Button>
+
+                        <Button
+                            type="button"
+                            size="small"
+                            variant="text"
+                            startIcon={<ContentCopyRoundedIcon />}
+                            onClick={() => onCopyText(url)}
+                        >
+                            Copy proxy link
+                        </Button>
+                    </Stack>
+                </Stack>
+            )}
+
+            {!loadingPreview && !previewError && previewUrl && (
+                <Box
+                    component="iframe"
+                    title={`${file.name} custom preview`}
+                    src={previewUrl}
+                    loading="lazy"
+                    onError={() =>
+                        setPreviewError("The browser could not display the fetched PDF blob.")
+                    }
+                    sx={{
+                        display: "block",
+                        width: "100%",
+                        height: { xs: 280, md: 420 },
+                        border: 0,
+                        bgcolor: "rgba(0,0,0,.22)",
+                    }}
+                />
+            )}
+        </Box>
+    );
+});
 
 const ArchiveDocumentFileRow = React.memo(function ArchiveDocumentFileRow({
                                                                               file,
@@ -1819,19 +1943,10 @@ const ArchiveDocumentFileRow = React.memo(function ArchiveDocumentFileRow({
                 </Stack>
 
                 {file.kind === "PDF" && (
-                    <Box
-                        component="iframe"
-                        title={file.name}
-                        src={activeUrl}
-                        loading="lazy"
-                        onError={switchToFallback}
-                        sx={{
-                            width: "100%",
-                            height: { xs: 280, md: 420 },
-                            border: "1px solid rgba(255,255,255,.12)",
-                            borderRadius: 2,
-                            bgcolor: "rgba(0,0,0,.22)",
-                        }}
+                    <ArchiveDocumentPreviewFrame
+                        file={file}
+                        url={activeUrl}
+                        onCopyText={onCopyText}
                     />
                 )}
 
@@ -2081,9 +2196,7 @@ export default function Archive() {
     const [customCollectionInput, setCustomCollectionInput] = useState(
         restoredSession.customCollectionInput || ""
     );
-    const [useArchiveProxy, setUseArchiveProxy] = useState(
-        Boolean(restoredSession.useArchiveProxy)
-    );
+    const useArchiveProxy = true;
     const [copiedUrl, setCopiedUrl] = useState("");
     const [activeSearch, setActiveSearch] = useState(null);
     const [visibleResultLimit, setVisibleResultLimit] = useState(
@@ -2104,7 +2217,7 @@ export default function Archive() {
             restoredSession.selectedCollections || DEFAULT_SELECTED_COLLECTIONS,
         customCollections: restoredSession.customCollections || [],
         customCollectionInput: restoredSession.customCollectionInput || "",
-        useArchiveProxy: Boolean(restoredSession.useArchiveProxy),
+        useArchiveProxy: true,
     });
     const browserSessionRef = useRef(restoredSession);
     const lastSubmittedSearchRef = useRef({
@@ -2114,7 +2227,7 @@ export default function Archive() {
             restoredSession.lastSubmittedSearch?.selectedCollections ||
             restoredSession.selectedCollections ||
             DEFAULT_SELECTED_COLLECTIONS,
-        useArchiveProxy: Boolean(restoredSession.lastSubmittedSearch?.useArchiveProxy),
+        useArchiveProxy: true,
         cursor: restoredSession.lastSubmittedSearch?.cursor || "",
         signature: restoredSession.lastSubmittedSearch?.signature || "",
         loadedCandidateCount: Number(
@@ -2124,8 +2237,8 @@ export default function Archive() {
     });
 
     const currentSearchSignature = useMemo(() => {
-        return buildSearchSignature(query, selectedCollections, useArchiveProxy);
-    }, [query, selectedCollections, useArchiveProxy]);
+        return buildSearchSignature(query, selectedCollections);
+    }, [query, selectedCollections]);
 
     const hasUnsubmittedSearchChanges = useMemo(() => {
         return Boolean(
@@ -2178,9 +2291,9 @@ export default function Archive() {
             selectedCollections: [...selectedCollections],
             customCollections: [...customCollections],
             customCollectionInput,
-            useArchiveProxy,
+            useArchiveProxy: true,
         };
-    }, [query, selectedCollections, customCollections, customCollectionInput, useArchiveProxy]);
+    }, [query, selectedCollections, customCollections, customCollectionInput]);
 
     useEffect(() => {
         const snapshot = {
@@ -2188,7 +2301,7 @@ export default function Archive() {
             selectedCollections: [...selectedCollections],
             customCollections: [...customCollections],
             customCollectionInput,
-            useArchiveProxy,
+            useArchiveProxy: true,
             nextCursor,
             status,
             error,
@@ -2205,7 +2318,6 @@ export default function Archive() {
         selectedCollections,
         customCollections,
         customCollectionInput,
-        useArchiveProxy,
         nextCursor,
         status,
         error,
@@ -2391,18 +2503,6 @@ export default function Archive() {
         );
     }
 
-    function handleArchiveProxyChange(event) {
-        const enabled = event.target.checked;
-
-        setUseArchiveProxy(enabled);
-        writeArchiveProxySetting(enabled);
-        stopActiveSearchAndKeepResults(
-            enabled
-                ? "Archive proxy enabled. Press Search Archive Documents when ready."
-                : "Archive proxy disabled for the first try. Direct Archive.org requests will still retry through the proxy if production blocks them."
-        );
-    }
-
     async function copyText(value) {
         try {
             await navigator.clipboard.writeText(value);
@@ -2437,7 +2537,7 @@ export default function Archive() {
             : {
                 query,
                 selectedCollections: [...selectedCollections],
-                useArchiveProxy,
+                useArchiveProxy: true,
                 cursor: "",
                 loadedCandidateCount: 0,
                 batchCount: 0,
@@ -2445,7 +2545,7 @@ export default function Archive() {
             };
         const queryForRequest = searchSource.query;
         const collectionsForRequest = normalizeCollectionIds(searchSource.selectedCollections);
-        const proxyForRequest = Boolean(searchSource.useArchiveProxy);
+        const proxyForRequest = true;
         const cursorForRequest = isLoadMore ? searchSource.cursor || nextCursor || "" : "";
         const batchStartIndex = isLoadMore
             ? Math.max(0, Number(searchSource.loadedCandidateCount || 0))
@@ -2457,9 +2557,7 @@ export default function Archive() {
             collectionsForRequest,
             proxyForRequest
         );
-        const archiveRouteLabel = proxyForRequest
-            ? " through scrapewebsite /api/archiveproxy"
-            : " directly from Archive.org with scrapewebsite /api/archiveproxy fallback";
+        const archiveRouteLabel = " through scrapewebsite /api/archiveproxy";
 
         if (!safeQuery) {
             setError("Type a search query first.");
@@ -3051,20 +3149,12 @@ export default function Archive() {
 
                                 <Divider />
 
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={useArchiveProxy}
-                                            onChange={handleArchiveProxyChange}
-                                        />
-                                    }
-                                    label="Use scrapewebsite /api/archiveproxy for querying, metadata, thumbnails, PDF previews, and document downloads"
-                                />
-
-                                <Alert severity={useArchiveProxy ? "warning" : "info"}>
-                                    {useArchiveProxy
-                                        ? `Proxy mode is on. Search JSON, metadata JSON, thumbnail images, PDF preview URLs, and document download URLs route through ${SCRAPEWEBSITE_ARCHIVE_PROXY_URL}. SuiteOfficeLab production defaults to this route so Archive CORS blocks do not surface as failed fetches.`
-                                        : "Proxy mode is off for the first attempt. Search JSON and metadata use Archive.org directly, then automatically retry through scrapewebsite /api/archiveproxy if production blocks the direct request."}
+                                <Alert severity="success">
+                                    Archive proxy is always on. Search JSON, metadata JSON,
+                                    thumbnail images, custom PDF preview frames, and document
+                                    downloads route through {SCRAPEWEBSITE_ARCHIVE_PROXY_URL} so
+                                    SuiteOfficeLab avoids direct Archive.org CORS and 401/403
+                                    browser failures.
                                 </Alert>
                             </Stack>
                         </CardContent>
@@ -3083,7 +3173,7 @@ export default function Archive() {
                             />
                             <Chip label={`${totalDocumentFiles} document file(s) loaded`} />
                             <Chip label={`Collections: ${selectedCollections.length}`} />
-                            <Chip label={`Proxy: ${useArchiveProxy ? "on" : "off"}`} />
+                            <Chip label="Proxy: always on" color="success" />
                             <Chip
                                 label={
                                     nextCursor
