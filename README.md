@@ -1,70 +1,74 @@
-# Getting Started with Create React App
+# SuiteOfficeLab Vite + Static SEO Build
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This package preserves the existing SuiteOfficeLab React editors, viewers, converters, Archive browser, visual design, and routes while replacing Create React App with Vite.
 
-## Available Scripts
+## What changed
 
-In the project directory, you can run:
+- Vite development and production builds replace `react-scripts`.
+- Every public route receives a physical static HTML file such as `dist/csv.html`; Cloudflare serves it at the clean canonical URL `/csv`.
+- Each route includes a unique title, description, canonical URL, robots directives, Open Graph metadata, Twitter metadata, an H1, explanatory copy, internal links, FAQ content, and Schema.org JSON-LD before JavaScript runs.
+- Duplicate alias URLs are prerendered with `noindex, follow` and canonicalize to their primary tool pages.
+- `sitemap.xml` and `robots.txt` are regenerated on every production build.
+- Cloudflare asset caching headers and a static `404.html` are included.
+- Large libraries are split into reusable production chunks.
 
-### `npm start`
+Static rendering and stronger metadata make pages easier for search engines to discover and understand, but no technical change can guarantee a particular Google Search Console position or ranking.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Requirements
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Node.js 20.19 or newer
+- npm 10 or newer recommended
 
-### `npm test`
+## Install and run
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+npm install
+npm run dev
+```
 
-### `npm run build`
+The Vite development server uses `http://localhost:3000`.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Production build
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm run build
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The command performs three stages:
 
-### `npm run eject`
+1. Builds the interactive React app with Vite.
+2. Statically renders all configured routes into `dist/`.
+3. Verifies route HTML, canonical tags, JSON-LD, robots directives, Vite assets, and sitemap coverage.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Preview the finished output with:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+npm run preview
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Cloudflare deployment
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+`wrangler.toml` points Cloudflare assets to `./dist`, drops trailing slashes for canonical URLs, and serves the generated `404.html` for unknown paths.
 
-## Learn More
+```bash
+npm run build
+npx wrangler deploy
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+For Cloudflare Pages, use:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Node version: `20.19.0` or newer
 
-### Code Splitting
+## Adding a route
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+When adding a new React Router route, add corresponding metadata to `src/seo/routeMetadata.js`. The production build will then create its static route file and sitemap entry automatically.
 
-### Analyzing the Bundle Size
+## Environment configuration
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+The production site URL defaults to `https://suiteofficelab.com`. To override it in browser-generated metadata, copy `.env.example` to `.env.local` and set `VITE_SITE_URL`.
 
-### Making a Progressive Web App
+## Package contents
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This archive intentionally excludes `node_modules`, prior CRA build output, Git history, and IDE metadata. Run `npm install` after copying the files into the destination directory.

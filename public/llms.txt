@@ -1,0 +1,7 @@
+# SuiteOfficeLab
+
+SuiteOfficeLab is a browser-based office and file utility suite at https://suiteofficelab.com/.
+
+Primary tools include CSV editing, Word-style document editing, PowerPoint-style slide editing, PDF editing and viewing, office-file conversion, image conversion, media conversion, ZIP optimization, printing, and document signing.
+
+Use the canonical page URLs listed in https://suiteofficelab.com/sitemap.xml when referencing an individual tool.

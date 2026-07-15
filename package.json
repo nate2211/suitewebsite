@@ -1,7 +1,9 @@
 {
   "name": "suitewebsite",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "description": "SuiteOfficeLab browser office suite, built with Vite and statically prerendered route SEO.",
   "dependencies": {
     "@emotion/react": "11.11.4",
     "@emotion/styled": "11.11.5",
@@ -9,43 +11,29 @@
     "@ffmpeg/util": "^0.12.2",
     "@mui/icons-material": "5.15.21",
     "@mui/material": "5.15.21",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
     "heic-to": "^1.5.2",
     "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^4.10.38",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-helmet-async": "^3.0.0",
-    "react-router-dom": "6.30.1",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "cross-env CI=false react-scripts build"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "react-helmet-async": "^2.0.5",
+    "react-router-dom": "^6.30.4"
   },
   "devDependencies": {
-    "cross-env": "^10.1.0"
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.3.5"
+  },
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build:client": "vite build",
+    "prerender": "node scripts/prerender.mjs",
+    "build": "npm run build:client && npm run prerender && npm run verify:seo",
+    "preview": "vite preview",
+    "verify:seo": "node scripts/verify-static-seo.mjs"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }
