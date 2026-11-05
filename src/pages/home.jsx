@@ -141,7 +141,7 @@ export default function Home() {
             title: "Direct task pages",
             icon: <FindInPageRoundedIcon />,
             description:
-                "SEO-friendly routes help users land directly on the exact tool they need: compress MP4, convert CSV to JSON, sign a PDF, or view a Word file.",
+                "Direct tool links help users land directly on the exact tool they need: compress MP4, convert CSV to JSON, sign a PDF, or view a Word file.",
         },
         {
             title: "Helpdesk-ready utilities",
@@ -400,7 +400,7 @@ export default function Home() {
 
                                 <Chip
                                     icon={<FindInPageRoundedIcon />}
-                                    label="Direct SEO utility pages"
+                                    label="Focused office utilities"
                                     sx={heroChipMutedSx}
                                 />
                             </Stack>
@@ -415,7 +415,7 @@ export default function Home() {
                                     letterSpacing: "-0.055em",
                                 }}
                             >
-                                Enterprise-style browser tools for documents, CSV data, PDFs, ZIPs, and video uploads.
+                                Browser tools for documents, CSV data, PDFs, ZIPs, and video uploads.
                             </Typography>
 
                             <Typography

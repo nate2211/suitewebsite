@@ -82,7 +82,15 @@ export default function HelmetHeader({
                 inLanguage: "en-US",
                 publisher: { "@id": `${configuredSiteUrl}/#organization` },
             },
-            {
+            resolvedRoute?.category === "editorial" || resolvedRoute?.category === "site" ? {
+                "@type": resolvedRoute.category === "editorial" ? "Article" : "WebPage",
+                "@id": `${canonicalUrl}#content`,
+                headline: resolvedRoute.h1,
+                description: resolvedDescription,
+                mainEntityOfPage: canonicalUrl,
+                inLanguage: "en-US",
+                publisher: { "@id": `${configuredSiteUrl}/#organization` },
+            } : {
                 "@type": "WebApplication",
                 "@id": `${canonicalUrl}#webapp`,
                 name: title || resolvedRoute?.title || SITE.name,

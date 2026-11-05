@@ -1445,7 +1445,7 @@ function OfficeToolsIndex({ preset }) {
                     </Typography>
 
                     <Typography sx={{ color: "rgba(255,255,255,.7)", fontSize: 18, lineHeight: 1.75 }}>
-                        These pages are built for direct SEO URLs. Convert PDF to JPG, JPG to PDF,
+                        Choose the exact task and output format you need. Convert PDF to JPG, JPG to PDF,
                         HEIC to JPG, Fahrenheit to Celsius, Celsius to Fahrenheit, audio to MP3,
                         MP3 to WAV, WAV to MP3, print PDF, print Word, clean CSV files, compress
                         videos, optimize ZIP files, and sign PDF documents.

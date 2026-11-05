@@ -1,3 +1,4 @@
+import { INFORMATION_PAGES } from "../content/routeGuides.js";
 export const SITE = Object.freeze({
   name: "SuiteOfficeLab",
   url: "https://suiteofficelab.com",
@@ -45,6 +46,16 @@ export const SEO_ROUTES = Object.freeze([
   Object.freeze({"path":"/convert-pdf-to-jpg","title":"Convert PDF to JPG Free","h1":"Convert PDF to JPG free","description":"Upload a PDF and export the current page or every page as high-quality JPG images directly in your browser.","keywords":"convert PDF to JPG free, PDF to JPG online, PDF page to image, PDF image converter","category":"documents","priority":0,"changefreq":"weekly","canonicalPath":"/pdf-to-jpg","index":false}),
   Object.freeze({"path":"/convert-jpg-to-pdf","title":"Convert JPG to PDF Free","h1":"Convert JPG to PDF free","description":"Upload a JPG, JPEG, or PNG image and convert it into a browser-generated PDF file for free.","keywords":"convert JPG to PDF free, JPG to PDF online, JPEG to PDF, image to PDF converter","category":"documents","priority":0,"changefreq":"weekly","canonicalPath":"/jpg-to-pdf","index":false}),
   Object.freeze({"path":"/convert-heic-to-jpg","title":"Convert HEIC to JPG Free","h1":"Convert HEIC to JPG free","description":"Upload an iPhone HEIC or HEIF image and convert it to a standard JPG image directly in your browser.","keywords":"convert HEIC to JPG free, HEIC to JPG online, iPhone photo converter, HEIF to JPG","category":"documents","priority":0,"changefreq":"weekly","canonicalPath":"/heic-to-jpg","index":false}),
+  ...Object.entries(INFORMATION_PAGES).map(([path, page]) => Object.freeze({
+    path,
+    title: page.title,
+    h1: page.title,
+    description: page.description,
+    keywords: "",
+    category: path.startsWith("/guides/") ? "editorial" : "site",
+    priority: path.startsWith("/guides/") ? 0.75 : 0.60,
+    changefreq: "monthly",
+  })),
 ]);
 
 export const SEO_ROUTE_MAP = new Map(SEO_ROUTES.map((route) => [route.path, route]));

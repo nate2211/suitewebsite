@@ -171,7 +171,7 @@ export function AppNavBar() {
 
                         <Box>
                             <Typography sx={{ fontWeight: 950, lineHeight: 1 }}>
-                                BrowserSuite
+                                SuiteOfficeLab
                             </Typography>
 
                             <Typography

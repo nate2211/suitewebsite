@@ -10,6 +10,8 @@ import PowerPoint from "./pages/powerpoint.jsx";
 import Pdf from "./pages/pdf.jsx";
 import AdditionalPages from "./pages/additionalpages.jsx";
 import Archive from "./pages/archive.jsx";
+import { EditorialPage, SiteResourceFooter } from "./components/Editorial.jsx";
+import { INFORMATION_PATHS } from "./content/routeGuides.js";
 
 const theme = createTheme({
   palette: {
@@ -97,8 +99,10 @@ export default function App() {
               <Route path="/wav-to-mp3" element={<AdditionalPages />} />
               <Route path="/print-pdf" element={<AdditionalPages />} />
               <Route path="/print-word" element={<AdditionalPages />} />
+              {INFORMATION_PATHS.map((path) => <Route key={path} path={path} element={<EditorialPage />} />)}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <SiteResourceFooter />
           </BrowserRouter>
         </ThemeProvider>
       </HelmetProvider>

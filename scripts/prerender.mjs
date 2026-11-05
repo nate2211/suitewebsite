@@ -6,12 +6,22 @@ import {
   getCanonicalPath,
   getIndexableRoutes,
 } from "../src/seo/routeMetadata.js";
+import { CONTACT_EMAIL, INFORMATION_PAGES, getToolGuide } from "../src/content/routeGuides.js";
 
 const projectRoot = process.cwd();
 const distDir = path.join(projectRoot, "dist");
 const templatePath = path.join(distDir, "index.html");
 const buildDate = new Date().toISOString().slice(0, 10);
-const template = await readFile(templatePath, "utf8");
+let template = await readFile(templatePath, "utf8");
+// A second prerender without rebuilding must not silently retain the previous
+// route body. Vite normally recreates the template for every production build.
+if (!template.includes("<!-- STATIC_ROUTE_CONTENT -->") && template.includes('data-prerendered="true"')) {
+  template = template.replace(/<div id="root">[\s\S]*?<\/div>(?=\s*<\/body>)/,
+    '<div id="root"><!-- STATIC_ROUTE_CONTENT --></div>');
+}
+if (!template.includes("<!-- STATIC_ROUTE_CONTENT -->")) {
+  throw new Error("Vite index.html lacks the expected #root static-content marker");
+}
 
 const escapeHtml = (value = "") =>
   String(value)
@@ -43,6 +53,8 @@ function categoryLabel(category) {
     media: "Media tool",
     archives: "Archive and file tool",
     calculators: "Browser calculator",
+    editorial: "Office learning guide",
+    site: "Site information",
   }[category] || "Browser office tool";
 }
 
@@ -59,49 +71,15 @@ function categoryCopy(category) {
 }
 
 function howToSteps(route) {
-  if (route.category === "calculators") {
-    return [
-      "Enter the temperature value you want to convert.",
-      "Review the calculated result immediately.",
-      "Copy the result into your document, spreadsheet, or project.",
-    ];
-  }
-  if (route.path === "/archive") {
-    return [
-      "Enter a document search query and choose useful collection filters.",
-      "Review public Archive.org results and available file formats.",
-      "Open a compatible document preview or continue to the source item.",
-    ];
-  }
-  if (route.path === "/") {
-    return [
-      "Choose the editor, viewer, converter, compressor, or utility you need.",
-      "Open or create the supported file directly in the browser.",
-      "Export the result or continue working with another SuiteOfficeLab tool.",
-    ];
-  }
-  return [
-    "Open the tool and select a supported file or enter the requested data.",
-    "Use the page controls to edit, convert, inspect, clean, compress, or prepare the content.",
-    "Download, print, copy, or export the resulting file when the tool finishes.",
-  ];
+  return getToolGuide(route.path)?.steps || [];
 }
 
 function faqFor(route) {
-  const toolName = route.h1.replace(/[?.!]+$/, "");
+  const guide = getToolGuide(route.path);
+  if (!guide) return [];
   return [
-    {
-      question: `What does ${toolName} do?`,
-      answer: route.description,
-    },
-    {
-      question: "Do I need to install a desktop office application?",
-      answer: "No desktop office suite is required for the interactive workflow. The tool runs from a modern web browser.",
-    },
-    {
-      question: "Is JavaScript required?",
-      answer: "Yes. The statically rendered page explains the tool, while JavaScript powers file selection, editing, conversion, previews, and exports.",
-    },
+    {question: `What is a useful example for ${route.h1.toLowerCase()}?`, answer: guide.example},
+    {question: `What should I check when using this tool?`, answer: guide.cautions.join(" ")},
   ];
 }
 
@@ -119,89 +97,46 @@ function relatedRoutes(route) {
 function schemaGraph(route) {
   const canonicalPath = getCanonicalPath(route);
   const canonicalUrl = absoluteUrl(canonicalPath);
-  const faqs = faqFor(route);
-  const graph = [
-    {
-      "@type": "Organization",
-      "@id": `${SITE.url}/#organization`,
-      name: SITE.name,
-      url: `${SITE.url}/`,
-      logo: {
-        "@type": "ImageObject",
-        url: absoluteUrl(SITE.image),
-        width: 512,
-        height: 512,
-      },
-    },
-    {
-      "@type": "WebSite",
-      "@id": `${SITE.url}/#website`,
-      name: SITE.name,
-      url: `${SITE.url}/`,
-      description: SITE.description,
-      inLanguage: "en-US",
-      publisher: { "@id": `${SITE.url}/#organization` },
-    },
-    {
-      "@type": "WebApplication",
-      "@id": `${canonicalUrl}#webapp`,
-      name: route.title,
-      headline: route.h1,
-      url: canonicalUrl,
-      description: route.description,
-      applicationCategory: route.category === "calculators" ? "UtilitiesApplication" : "BusinessApplication",
-      applicationSubCategory: categoryLabel(route.category),
-      operatingSystem: "Web Browser",
-      browserRequirements: "Requires JavaScript and a modern web browser.",
-      isAccessibleForFree: true,
-      inLanguage: "en-US",
-      image: absoluteUrl(SITE.image),
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-      },
-      publisher: { "@id": `${SITE.url}/#organization` },
-    },
-    {
-      "@type": "FAQPage",
-      "@id": `${canonicalUrl}#faq`,
-      mainEntity: faqs.map((faq) => ({
-        "@type": "Question",
-        name: faq.question,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: faq.answer,
-        },
-      })),
-    },
-  ];
-
-  if (canonicalPath !== "/") {
-    graph.push({
-      "@type": "BreadcrumbList",
-      "@id": `${canonicalUrl}#breadcrumb`,
-      itemListElement: [
-        {
-          "@type": "ListItem",
-          position: 1,
-          name: "SuiteOfficeLab",
-          item: `${SITE.url}/`,
-        },
-        {
-          "@type": "ListItem",
-          position: 2,
-          name: route.h1,
-          item: canonicalUrl,
-        },
-      ],
-    });
-  }
-
-  return {
-    "@context": "https://schema.org",
-    "@graph": graph,
+  const isGuide = route.category === "editorial";
+  const isSite = route.category === "site";
+  const item = (isGuide || isSite) ? {
+    "@type": isGuide ? "Article" : "WebPage",
+    "@id": `${canonicalUrl}#content`,
+    headline: route.h1,
+    name: route.title,
+    description: route.description,
+    mainEntityOfPage: canonicalUrl,
+    inLanguage: "en-US",
+    publisher: { "@id": `${SITE.url}/#organization` },
+  } : {
+    "@type": "WebApplication",
+    "@id": `${canonicalUrl}#webapp`,
+    name: route.title,
+    url: canonicalUrl,
+    description: route.description,
+    applicationCategory: route.category === "calculators" ? "UtilitiesApplication" : "BusinessApplication",
+    applicationSubCategory: categoryLabel(route.category),
+    operatingSystem: "Web Browser",
+    browserRequirements: "Requires JavaScript and a modern web browser.",
+    isAccessibleForFree: true,
+    inLanguage: "en-US",
+    image: absoluteUrl(SITE.image),
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    publisher: { "@id": `${SITE.url}/#organization` },
   };
+  const graph = [
+    {"@type":"Organization", "@id":`${SITE.url}/#organization`, name:SITE.name, url:`${SITE.url}/`, logo:{"@type":"ImageObject",url:absoluteUrl(SITE.image),width:512,height:512}},
+    {"@type":"WebSite", "@id":`${SITE.url}/#website`, name:SITE.name,url:`${SITE.url}/`,description:SITE.description,inLanguage:"en-US",publisher:{"@id":`${SITE.url}/#organization`}},
+    item,
+  ];
+  if (canonicalPath !== "/") graph.push({
+    "@type":"BreadcrumbList", "@id":`${canonicalUrl}#breadcrumb`,
+    itemListElement:[
+      {"@type":"ListItem",position:1,name:SITE.name,item:`${SITE.url}/`},
+      {"@type":"ListItem",position:2,name:route.h1,item:canonicalUrl},
+    ],
+  });
+  return {"@context":"https://schema.org","@graph":graph};
 }
 
 function buildHead(route) {
@@ -242,46 +177,55 @@ function buildHead(route) {
     <script type="application/ld+json">${escapeJson(schema)}</script>
     <style id="static-route-style">
       .static-route{min-height:100vh;padding:clamp(28px,5vw,72px);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff;background:radial-gradient(circle at top left,rgba(158,232,255,.18),transparent 35%),radial-gradient(circle at top right,rgba(179,140,255,.18),transparent 35%),linear-gradient(135deg,#050711 0%,#080d1c 45%,#0a1024 100%)}
-      .static-route__wrap{width:min(1120px,100%);margin:0 auto}.static-route__brand{display:inline-flex;gap:10px;align-items:center;color:#9ee8ff;font-weight:900;text-decoration:none}.static-route__eyebrow{margin:48px 0 12px;color:#9ee8ff;font-size:.8rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.static-route h1{max-width:900px;margin:0;font-size:clamp(2.25rem,7vw,5rem);line-height:1.02;letter-spacing:-.045em}.static-route__lead{max-width:850px;margin:24px 0;color:rgba(255,255,255,.78);font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.75}.static-route__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin:34px 0}.static-route__card{padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:rgba(10,16,32,.78)}.static-route h2{margin-top:0;font-size:1.3rem}.static-route p,.static-route li{color:rgba(255,255,255,.72);line-height:1.7}.static-route a{color:#9ee8ff}.static-route__links{display:flex;flex-wrap:wrap;gap:10px}.static-route__links a{padding:10px 14px;border:1px solid rgba(158,232,255,.24);border-radius:999px;text-decoration:none;background:rgba(158,232,255,.08)}
+      .static-route__wrap{width:min(1120px,100%);margin:0 auto}.static-route__brand{display:inline-flex;gap:10px;align-items:center;color:#9ee8ff;font-weight:900;text-decoration:none}.static-route__eyebrow{margin:48px 0 12px;color:#9ee8ff;font-size:.8rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.static-route h1{max-width:900px;margin:0;font-size:clamp(2.25rem,7vw,5rem);line-height:1.02;letter-spacing:-.045em}.static-route__lead{max-width:850px;margin:24px 0;color:rgba(255,255,255,.78);font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.75}.static-route__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin:34px 0}.static-route__card{padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:rgba(10,16,32,.78)}.static-route h2{margin-top:0;font-size:1.3rem}.static-route p,.static-route li{color:rgba(255,255,255,.72);line-height:1.7}.static-route a{color:#9ee8ff}.static-route__links{display:flex;flex-wrap:wrap;gap:10px}.static-route__links a{padding:10px 14px;border:1px solid rgba(158,232,255,.24);border-radius:999px;text-decoration:none;background:rgba(158,232,255,.08)}.static-route__article{max-width:840px}.static-route__article section{margin:32px 0}.static-route__article p{line-height:1.85}.static-route__footer{border-top:1px solid rgba(255,255,255,.15);padding:32px 0;margin-top:50px}.static-route__footer a{margin-right:14px}
     </style>
     <!-- SEO_HEAD_END -->`;
 }
 
 function buildStaticContent(route) {
+  const linked = (paths) => `<nav class="static-route__links" aria-label="Related resources">${paths.map(path => {
+    const item = SEO_ROUTES.find(candidate => candidate.path === path);
+    return `<a href="${escapeHtml(path)}">${escapeHtml(item?.title || path)}</a>`;
+  }).join("")}</nav>`;
+  const info = INFORMATION_PAGES[route.path];
+  const guide = getToolGuide(route.path);
   const related = relatedRoutes(route);
-  const steps = howToSteps(route);
-  const faqs = faqFor(route);
-  const canonicalPath = getCanonicalPath(route);
-
-  return `<main class="static-route" data-prerendered="true" data-route="${escapeHtml(route.path)}">
-      <div class="static-route__wrap">
-        <a class="static-route__brand" href="/" aria-label="SuiteOfficeLab home">SuiteOfficeLab</a>
-        <p class="static-route__eyebrow">${escapeHtml(categoryLabel(route.category))}</p>
-        <h1>${escapeHtml(route.h1)}</h1>
-        <p class="static-route__lead">${escapeHtml(route.description)}</p>
-        <div class="static-route__grid">
-          <section class="static-route__card">
-            <h2>What this browser tool provides</h2>
-            <p>${escapeHtml(categoryCopy(route.category))}</p>
-            <p>The interactive application loads on this same canonical URL: <a href="${escapeHtml(canonicalPath)}">${escapeHtml(absoluteUrl(canonicalPath))}</a>.</p>
-          </section>
-          <section class="static-route__card">
-            <h2>How to use it</h2>
-            <ol>${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
-          </section>
-        </div>
-        <section class="static-route__card">
-          <h2>Frequently asked questions</h2>
-          ${faqs.map((faq) => `<h3>${escapeHtml(faq.question)}</h3><p>${escapeHtml(faq.answer)}</p>`).join("")}
-        </section>
-        <section class="static-route__card" style="margin-top:18px">
-          <h2>Related SuiteOfficeLab tools</h2>
-          <nav class="static-route__links" aria-label="Related tools">
-            ${related.map((item) => `<a href="${escapeHtml(item.path)}">${escapeHtml(item.h1)}</a>`).join("")}
-          </nav>
-        </section>
+  let mainContent;
+  if (info) {
+    mainContent = `<article class="static-route__article">
+      ${info.sections.map(([heading, copy]) => `<section><h2>${escapeHtml(heading)}</h2><p>${escapeHtml(copy)}</p></section>`).join("")}
+      ${route.path === "/contact" ? `<p>Email: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p>` : ""}
+      <section><h2>Related resources</h2>${linked(info.links || [])}</section>
+    </article>`;
+  } else if (guide) {
+    mainContent = `<article>
+      <section class="static-route__card" style="margin:24px 0">
+        <h2>What this tool is for</h2><p>${escapeHtml(guide.intro)}</p>
+      </section>
+      <div class="static-route__grid">
+        <section class="static-route__card"><h2>How to use it</h2><ol>${guide.steps.map(step=>`<li>${escapeHtml(step)}</li>`).join("")}</ol></section>
+        <section class="static-route__card"><h2>Example workflow</h2><p>${escapeHtml(guide.example)}</p></section>
       </div>
-    </main>`;
+      <section class="static-route__card"><h2>Important limitations</h2><ul>${guide.cautions.map(note=>`<li>${escapeHtml(note)}</li>`).join("")}</ul></section>
+      <section class="static-route__card" style="margin-top:20px"><h2>Related tools</h2>${linked(related.map(item=>item.path))}</section>
+      <section class="static-route__card" style="margin-top:20px"><h2>Learn more</h2>${linked(["/guides/file-conversion-checklist","/guides/csv-data-quality","/guides/pdf-redaction-and-signing","/guides/word-pdf-conversion","/guides/video-compression-basics"])}</section>
+    </article>`;
+  } else {
+    mainContent = `<p>The requested page is not available. Visit the homepage or browse the current office tools.</p>${linked(["/", "/office-tools", "/contact"])}`;
+  }
+  return `<main class="static-route" data-prerendered="true" data-route="${escapeHtml(route.path)}">
+    <div class="static-route__wrap">
+      <a class="static-route__brand" href="/" aria-label="SuiteOfficeLab home">SuiteOfficeLab</a>
+      <nav class="static-route__links" aria-label="Main navigation" style="margin-top:15px"><a href="/office-tools">Office tools</a><a href="/guides/csv-data-quality">Learning guides</a><a href="/about">About</a><a href="/contact">Contact</a></nav>
+      <p class="static-route__eyebrow">${escapeHtml(categoryLabel(route.category))}</p>
+      <h1>${escapeHtml(route.h1)}</h1>
+      <p class="static-route__lead">${escapeHtml(route.description)}</p>
+      ${mainContent}
+      <footer class="static-route__footer"><p>SuiteOfficeLab provides browser tools and original documentation. Review exported files before relying on them.</p>
+        <nav aria-label="Footer navigation"><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></nav>
+      </footer>
+    </div>
+  </main>`;
 }
 
 function renderRoute(route) {
